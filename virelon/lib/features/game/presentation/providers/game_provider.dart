@@ -98,6 +98,28 @@ class GameNotifier extends StateNotifier<GameState> {
   void reset() {
     state = const GameState(players: []);
   }
+
+  // Aynı oyuncularla yeni oyun başlat
+  void restartGame() {
+    if (state.players.isEmpty) return;
+    
+    // Mevcut oyuncuları ve ayarları al (wins sayısını koru)
+    final playerNames = state.players.map((p) => Player(
+      id: p.id,
+      name: p.name,
+      avatar: p.avatar,
+      ideology: p.ideology,
+      wins: p.wins, // Wins sayısını koru
+    )).toList();
+    
+    final isPlusMode = state.players.first.ideology != null;
+    
+    // Yeni oyun başlat (Plus mode ayarları şimdilik null)
+    state = _engine.initializeGame(
+      playerNames,
+      isPlusMode: isPlusMode,
+    );
+  }
 }
 
 final gameEngineProvider = Provider((ref) => GameEngine());

@@ -256,6 +256,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   if (gameState.phase == GamePhase.investigation) return _buildInvestigationUI(gameState, notifier);
                   if (gameState.phase == GamePhase.challengeVerification) return _buildChallengeVerificationUI(gameState, notifier);
                   if (gameState.phase == GamePhase.resolution) return _buildResolutionUI(gameState, notifier);
+                  if (gameState.phase == GamePhase.gameOver) return _buildGameOverUI(gameState, notifier);
                   return _buildGameUI(context, gameState, notifier);
                 }
               ),
@@ -2369,6 +2370,111 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // --- GAME OVER / VICTORY SCREEN ---
+  Widget _buildGameOverUI(GameState state, GameNotifier notifier) {
+    final winner = state.players.firstWhere((p) => p.isAlive, orElse: () => state.players.first);
+    
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Trophy Icon
+            Icon(
+              Icons.emoji_events,
+              size: 120,
+              color: Colors.amber,
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+              .shimmer(duration: 1.seconds)
+              .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1)),
+            
+            const SizedBox(height: 32),
+            
+            // Victory Message
+            GlassContainer(
+              padding: const EdgeInsets.all(32),
+              isGlowing: true,
+              borderColor: Colors.amber,
+              child: Column(
+                children: [
+                  Text(
+                    "🎉 TEBRİKLER! 🎉",
+                    style: AppTheme.headline.copyWith(
+                      color: Colors.amber,
+                      fontSize: 32,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  Text(
+                    "OYUNU KAZANAN",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Winner Name
+                  Text(
+                    winner.name.toUpperCase(),
+                    style: AppTheme.headline.copyWith(
+                      color: AppTheme.primary,
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Star Rating (actual wins)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      winner.wins.clamp(0, 5), // Max 5 stars
+                      (index) => Icon(Icons.star, color: Colors.amber, size: 40),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  Text(
+                    "${winner.wins} YILDIZ",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // New Game Button
+                  NeonButton(
+                    label: "YENİ OYUN",
+                    icon: Icons.refresh,
+                    baseColor: AppTheme.success,
+                    isLarge: true,
+                    onTap: () {
+                      // Restart with same players
+                      notifier.restartGame();
+                    },
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(duration: 500.ms).moveY(begin: 30, end: 0),
+          ],
         ),
       ),
     );

@@ -253,8 +253,18 @@ class GameEngine {
     // 1. Oyun Bitti mi Kontrolü
     List<Player> alivePlayers = current.players.where((p) => p.isAlive).toList();
     if (alivePlayers.length <= 1) {
-       final winner = alivePlayers.isNotEmpty ? alivePlayers.first : current.players.first; 
+       final winner = alivePlayers.isNotEmpty ? alivePlayers.first : current.players.first;
+       
+       // Kazananın win sayısını artır
+       final updatedPlayers = current.players.map((p) {
+         if (p.id == winner.id) {
+           return p.copyWith(wins: p.wins + 1);
+         }
+         return p;
+       }).toList();
+       
        return current.copyWith(
+         players: updatedPlayers,
          phase: GamePhase.gameOver,
          lastLog: "OYUN BİTTİ! KAZANAN: ${winner.name.toUpperCase()}",
        );

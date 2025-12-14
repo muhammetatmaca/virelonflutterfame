@@ -11,6 +11,7 @@ class Player extends Equatable {
   final PlayerIdeology? ideology; // Plus modu için (Liberal/Ulusalcı)
   final bool isAlive;
   final bool isTurn;
+  final int wins; // Kaç el kazandı
 
   // GameEngine uyumluluğu için (cards yerine hand dendiği yerler için)
   List<Character> get hand => cards;
@@ -25,6 +26,7 @@ class Player extends Equatable {
     this.ideology,
     this.isAlive = true,
     this.isTurn = false,
+    this.wins = 0,
   });
 
   Player copyWith({
@@ -38,6 +40,7 @@ class Player extends Equatable {
     PlayerIdeology? ideology,
     bool? isAlive,
     bool? isTurn,
+    int? wins,
   }) {
     return Player(
       id: id ?? this.id,
@@ -49,9 +52,10 @@ class Player extends Equatable {
       ideology: ideology ?? this.ideology,
       isAlive: isAlive ?? this.isAlive,
       isTurn: isTurn ?? this.isTurn,
+      wins: wins ?? this.wins,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, avatar, cards, revealedCards, coins, ideology, isAlive, isTurn];
+  List<Object?> get props => [id, name, avatar, cards, revealedCards, coins, ideology, isAlive, isTurn, wins];
 }
