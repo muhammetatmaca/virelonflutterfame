@@ -129,6 +129,11 @@ class GameEngine {
     GameState processedState = current;
     if (action == GameAction.assassinate || action == GameAction.convertOther) {
         int cost = (action == GameAction.assassinate) ? 3 : 2;
+        final player = current.players.firstWhere((p) => p.id == playerId);
+        
+        // Yeterli para kontrolü
+        if (player.coins < cost) return current; // Yeterli para yok
+        
         processedState = current.copyWith(
           players: current.players.map((p) => 
             p.id == playerId ? p.copyWith(coins: p.coins - cost) : p
@@ -196,10 +201,14 @@ class GameEngine {
           return p.copyWith(coins: p.coins + 2);
         }
         if (action == GameAction.coup) {
+          // Yeterli para kontrolü
+          if (p.coins < 7) return p; // Yeterli para yok, değişiklik yapma
           treasuryChange += 7; // Hazineye 7 ver
           return p.copyWith(coins: p.coins - 7);
         }
         if (action == GameAction.convertSelf) {
+           // Yeterli para kontrolü
+           if (p.coins < 1) return p; // Yeterli para yok
            treasuryChange += 1; // Hazineye 1 ver
            return p.copyWith(
              coins: p.coins - 1, 

@@ -1082,7 +1082,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           _showTargetDialog(context, GameAction.steal, notifier, gameState.players);
                        }),
                        const SizedBox(width: 8),
-                       NeonButton(label: "SALDIR (7)", icon: Icons.gavel, baseColor: AppTheme.danger, onTap: () => _showTargetDialog(context, GameAction.coup, notifier, gameState.players)),
+                       // SALDIR - Min 7 Coins
+                       if (currentPlayer.coins >= 7) ...[
+                         NeonButton(label: "SALDIR (7)", icon: Icons.gavel, baseColor: AppTheme.danger, onTap: () => _showTargetDialog(context, GameAction.coup, notifier, gameState.players)),
+                       ],
                     ],
                   ),
                 ),
