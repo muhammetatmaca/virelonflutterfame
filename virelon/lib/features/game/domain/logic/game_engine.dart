@@ -794,6 +794,11 @@ class GameEngine {
     GameAction action = state.currentAction!;
     bool isValid = false;
 
+    // Suikast ve Çalma: Sadece hedef blok edebilir
+    if ((action == GameAction.assassinate || action == GameAction.steal) && blockerId != state.actionTargetId) {
+      return state; // Hedef değilsen blok edemezsin
+    }
+
     if (action == GameAction.foreignAid) {
       // Dış Yardımı sadece Duke blok edebilir
       isValid = (claimCharacter == Character.duke);
@@ -866,7 +871,8 @@ class GameEngine {
     
     
     // 8. Eğer blocker blöf yaparken yakalandıysa, hamle devam etmeli
-    if (current.currentAction != null && victimId == current.blockerId) {
+    // ANCAK: Suikast kurbanı için bu geçerli değil!
+    if (current.currentAction != null && victimId == current.blockerId && current.currentAction != GameAction.assassinate) {
       // Blocker kaybetti, hamleyi uygula
       return resolveSuccess(newState.copyWith(
         blockerId: null,

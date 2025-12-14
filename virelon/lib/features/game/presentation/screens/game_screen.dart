@@ -719,12 +719,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildGameUI(BuildContext context, GameState gameState, GameNotifier notifier) {
     final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
     
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
         // --- TOP BAR ---
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -747,23 +753,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Flexible(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppTheme.accent.withOpacity(0.5)),
-                        borderRadius: BorderRadius.circular(12),
-                        color: AppTheme.accent.withOpacity(0.1)
-                      ),
-                      child: Text(
-                        gameState.phase.name.toUpperCase(), 
-                        style: AppTheme.chip.copyWith(fontSize: 8),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
                   GestureDetector(
                     onTap: () {
                       showDialog(
@@ -1103,7 +1092,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ],
           ),
         ),
-      ],
+         ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1646,10 +1638,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                        child: GestureDetector(
                          onTap: () {
                             // İtiraz tipini seç
-                            final canBlock = state.currentAction == GameAction.foreignAid ||
-                                           state.currentAction == GameAction.steal ||
-                                           state.currentAction == GameAction.assassinate ||
-                                           state.currentAction == GameAction.manipulate;
+                            // Suikast ve Çalma: Sadece hedef blok edebilir
+                            final isTarget = player.id == state.actionTargetId;
+                            final canBlock = (state.currentAction == GameAction.foreignAid) ||
+                                           (state.currentAction == GameAction.steal && isTarget) ||
+                                           (state.currentAction == GameAction.assassinate && isTarget) ||
+                                           (state.currentAction == GameAction.manipulate);
                             
                             showDialog(
                               context: context,
