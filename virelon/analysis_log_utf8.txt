@@ -1,0 +1,16 @@
+﻿Analyzing virelon...                                            
+
+   info - Unnecessary 'this.' qualifier - lib\core\enums\game_enums.dart:35:50 - unnecessary_this
+   info - Unnecessary 'this.' qualifier - lib\core\enums\game_enums.dart:48:23 - unnecessary_this
+  error - Target of URI doesn't exist: '../../theme/app_theme.dart' - lib\core\theme\app_theme_ext.dart:2:8 - uri_does_not_exist
+  error - Undefined class 'AppTheme' - lib\core\theme\app_theme_ext.dart:4:24 - undefined_class
+   info - Convert 'key' to a super parameter - lib\core\widgets\glass_container.dart:15:9 - use_super_parameters
+   info - Convert 'key' to a super parameter - lib\core\widgets\neon_button.dart:12:9 - use_super_parameters
+   info - Use interpolation to compose strings and values - lib\features\game\domain\logic\game_engine.dart:65:16 - prefer_interpolation_to_compose_strings
+   info - Convert 'key' to a super parameter - lib\features\game\presentation\screens\game_screen.dart:12:9 - use_super_parameters
+  error - Undefined class 'GameState' - lib\features\game\presentation\screens\game_screen.dart:60:45 - undefined_class
+   info - Convert 'key' to a super parameter - lib\features\game\presentation\widgets\action_button.dart:9:9 - use_super_parameters
+   info - Convert 'key' to a super parameter - lib\features\game\presentation\widgets\game_card.dart:13:9 - use_super_parameters
+warning - Unused import: 'package:virelon/main.dart' - test\widget_test.dart:11:8 - unused_import
+  error - The name 'MyApp' isn't a class - test\widget_test.dart:16:35 - creation_with_non_type
+

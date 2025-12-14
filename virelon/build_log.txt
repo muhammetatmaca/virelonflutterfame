@@ -1,0 +1,68 @@
+﻿
+Running Gradle task 'assembleRelease'...                        
+flutter : 
+At line:1 char:1
++ flutter build apk 2>&1 | O
+ut-File -Encoding UTF8 build
+_log.txt
++ ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (:Stri  
+  ng) [], RemoteException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+FAILURE: Build failed with a
+n exception.
+
+* What went wrong:
+Execution failed for task ':
+path_provider_android:compil
+eReleaseJavaWithJavac'.
+> Could not resolve all file
+s for configuration ':path_p
+rovider_android:androidJdkIm
+age'.
+   > Failed to transform cor
+e-for-system-modules.jar to 
+match attributes {artifactTy
+pe=_internal_android_jdk_ima
+ge, org.gradle.libraryelemen
+ts=jar, org.gradle.usage=jav
+a-runtime}.
+      > Execution failed for
+ JdkImageTransform: C:\Users
+\muham\AppData\Local\Android
+\sdk\platforms\android-34\co
+re-for-system-modules.jar.
+         > Error while execu
+ting process C:\Program File
+s\Android\Android Studio\jbr
+\bin\jlink.exe with argument
+s {--module-path C:\Users\mu
+ham\.gradle\caches\transform
+s-3\166316970778a74a6bc7edac
+ce7bc4d0\transformed\output\
+temp\jmod --add-modules java
+.base --output C:\Users\muha
+m\.gradle\caches\transforms-
+3\166316970778a74a6bc7edacce
+7bc4d0\transformed\output\jd
+kImage --disable-plugin syst
+em-modules}
+
+* Try:
+> Run with --stacktrace opti
+on to get the stack trace.
+> Run with --info or --debug
+ option to get more log outp
+ut.
+> Run with --scan to get ful
+l insights.
+> Get more help at https://h
+elp.gradle.org.
+
+BU´┐¢LD FAILED in 3s
+Running Gradle task 'assembleRelease'...                            4,0s
+Gradle task assembleRelease 
+failed with exit code 1
