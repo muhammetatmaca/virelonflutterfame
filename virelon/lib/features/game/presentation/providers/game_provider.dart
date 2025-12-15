@@ -71,10 +71,19 @@ class GameNotifier extends StateNotifier<GameState> {
   void selectInvestigationCard(Character selectedCard) {
     if (state.phase != GamePhase.investigationCardSelect) return;
     state = state.copyWith(
-      phase: GamePhase.investigation,
+      phase: GamePhase.investigationReturn, // Telefonu geri ver
       investigatedCard: selectedCard,
-      lastLog: "Kart seçildi! Engizisyoncu kartı görüyor...",
+      lastLog: "Kart seçildi! Telefonu geri veriniz.",
     );
+  }
+
+  // Handover onayları
+  void confirmInvestigationHandover() {
+    state = _engine.acknowledgeInvestigationHandover(state);
+  }
+
+  void confirmInvestigationReturn() {
+    state = _engine.acknowledgeInvestigationReturn(state);
   }
 
   void finalizeInvestigation(bool forceExchange) {

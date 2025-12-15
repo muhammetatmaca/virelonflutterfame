@@ -107,6 +107,23 @@ class GameEngine {
     }
   }
 
+  // --- Investigation Handover (Pass & Play) ---
+  GameState acknowledgeInvestigationHandover(GameState state) {
+    if (state.phase != GamePhase.investigationHandover) return state;
+    return state.copyWith(
+      phase: GamePhase.investigationCardSelect,
+      lastLog: "Kart seçimi bekleniyor...",
+    );
+  }
+
+  GameState acknowledgeInvestigationReturn(GameState state) {
+    if (state.phase != GamePhase.investigationReturn) return state;
+    return state.copyWith(
+      phase: GamePhase.investigation,
+      lastLog: "Engizisyoncu kartı inceliyor...",
+    );
+  }
+
   /// Oyuncunun hamle beyanı (Action Declaration)
   GameState declareAction(GameState current, String playerId, GameAction action, {String? targetId, Character? claimedCharacterOverride}) {
     if (current.phase != GamePhase.actionDeclaration) return current;
@@ -539,12 +556,12 @@ class GameEngine {
           );
         }
         
-        // Birden fazla kart varsa hedef seçsin
+        // Birden fazla kart varsa önce cihazı devret
         return state.copyWith(
            players: updatedPlayers,
-           phase: GamePhase.investigationCardSelect, // Hedef kart seçecek
-           investigatedCard: null, // Henüz seçilmedi
-           lastLog: "${targetP.name} gösterilecek kartı seçiyor...",
+           phase: GamePhase.investigationHandover, // Önce telefonu hedefe ver
+           investigatedCard: null,
+           lastLog: "Telefonu ${targetP.name} oyuncusuna veriniz.",
         );
      }
 

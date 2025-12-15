@@ -253,6 +253,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   if (gameState.phase == GamePhase.kayyumBidding) return _buildKayyumBiddingUI(gameState, notifier);
                   if (gameState.phase == GamePhase.victimHandover) return _buildVictimHandoverUI(gameState, notifier);
                   if (gameState.phase == GamePhase.exchange) return _buildExchangeUI(gameState, notifier);
+                  if (gameState.phase == GamePhase.investigationHandover) return _buildInvestigationHandoverUI(gameState, notifier, isReturn: false);
+                  if (gameState.phase == GamePhase.investigationCardSelect) return _buildInvestigationCardSelectUI(gameState, notifier);
+                  if (gameState.phase == GamePhase.investigationReturn) return _buildInvestigationHandoverUI(gameState, notifier, isReturn: true);
                   if (gameState.phase == GamePhase.investigation) return _buildInvestigationUI(gameState, notifier);
                   if (gameState.phase == GamePhase.challengeVerification) return _buildChallengeVerificationUI(gameState, notifier);
                   if (gameState.phase == GamePhase.resolution) return _buildResolutionUI(gameState, notifier);
@@ -2399,6 +2402,255 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
+  // Cihaz Devretme Ekranı (Investigation Handover)
+  Widget _buildInvestigationHandoverUI(GameState state, GameNotifier notifier, {required bool isReturn}) {
+    final targetId = state.actionTargetId!;
+    final initiatorId = state.actionInitiatorId!;
+    final targetPlayer = state.players.firstWhere((p) => p.id == targetId);
+    final initiatorPlayer = state.players.firstWhere((p) => p.id == initiatorId);
+    
+    // isReturn: true ise sorgulayana geri ver, false ise hedefe ver
+    final nextPlayerName = isReturn ? initiatorPlayer.name : targetPlayer.name;
+    final message = isReturn 
+      ? "Kart seçildi! Telefonu ${initiatorPlayer.name} oyuncusuna geri ver."
+      : "Sorgulama başlıyor! Telefonu ${targetPlayer.name} oyuncusuna ver.";
+      
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.black, Colors.grey.shade900],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.phonelink_ring,
+              size: 100,
+              color: AppTheme.primary,
+            ).animate(onPlay: (c) => c.repeat()).shake(duration: 1.5.seconds),
+            
+            const SizedBox(height: 40),
+            
+            GlassContainer(
+              padding: const EdgeInsets.all(32),
+              isGlowing: true,
+              borderColor: AppTheme.primary,
+              child: Column(
+                children: [
+                  Text(
+                    "CİHAZI DEVRET",
+                    style: AppTheme.headline.copyWith(
+                      color: AppTheme.primary,
+                      letterSpacing: 4,
+                      fontSize: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      message,
+                      style: AppTheme.body.copyWith(
+                        fontSize: 18,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  Icon(
+                    Icons.arrow_downward,
+                    size: 40,
+                    color: AppTheme.warning,
+                  ).animate(onPlay: (c) => c.repeat())
+                    .moveY(begin: 0, end: 10, duration: 1.seconds),
+                  
+                  const SizedBox(height: 32),
+                  
+                  NeonButton(
+                    label: "BEN ${nextPlayerName.toUpperCase()}",
+                    icon: Icons.check_circle,
+                    baseColor: AppTheme.success,
+                    isLarge: true,
+                    onTap: () {
+                      if (isReturn) {
+                        notifier.confirmInvestigationReturn();
+                      } else {
+                        notifier.confirmInvestigationHandover();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.symmetric(horizontal: 40),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.visibility_off, color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      isReturn 
+                        ? "Kartı kimse görmemeli!"
+                        : "Diğer oyuncular kartları görmemeli!",
+                      style: AppTheme.body.copyWith(
+                        fontSize: 12,
+                        color: Colors.amber,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Hedef Oyuncu Kart Seçimi (Investigation)
+  Widget _buildInvestigationCardSelectUI(GameState state, GameNotifier notifier) {
+    final targetId = state.actionTargetId!;
+    final targetPlayer = state.players.firstWhere((p) => p.id == targetId);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.orange.shade900, Colors.black],
+        ),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search, size: 70, color: Character.inquisitor.color)
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: 1.5.seconds),
+              const SizedBox(height: 24),
+              
+              Text(
+                "SORGU ALTINDASIN!",
+                style: AppTheme.headline.copyWith(color: AppTheme.warning, letterSpacing: 3),
+              ),
+              const SizedBox(height: 12),
+              
+              Text(
+                "${initiator.name}, kartlarından birini görmek istiyor.",
+                style: AppTheme.body.copyWith(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              
+              GlassContainer(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                borderColor: AppTheme.warning,
+                child: Text(
+                  "Hangi kartını göstermek istersin?",
+                  style: AppTheme.body.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 40),
+              
+              // Kart Seçimi
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 16,
+                runSpacing: 16,
+                children: targetPlayer.hand.map((card) {
+                  return GestureDetector(
+                    onTap: () => notifier.selectInvestigationCard(card),
+                    child: Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.warning.withOpacity(0.6),
+                                blurRadius: 20,
+                                spreadRadius: 3,
+                              )
+                            ],
+                          ),
+                          child: GameCardWidget(
+                            character: card,
+                            width: 130,
+                            height: 190,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        NeonButton(
+                          label: "BUNU GÖSTER",
+                          baseColor: AppTheme.warning,
+                          isLarge: false,
+                          onTap: () => notifier.selectInvestigationCard(card),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      "💡 STRATEJİ İPUCU",
+                      style: AppTheme.chip.copyWith(color: Colors.amber),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Blöf yapıyorsan, gerçek kartını gösterme!\nGüçlü bir kartın varsa, onu sakla.",
+                      style: AppTheme.body.copyWith(fontSize: 12, color: Colors.white60),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // Engizisyoncu Sorgulama UI
   Widget _buildInvestigationUI(GameState state, GameNotifier notifier) {
     final revealedCard = state.investigatedCard;
@@ -2459,25 +2711,32 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                Text("NE YAPMAK İSTERSİN?", style: AppTheme.body.copyWith(color: Colors.white54)),
                const SizedBox(height: 16),
                
-               Row(
-                 mainAxisAlignment: MainAxisAlignment.center,
-                 children: [
-                    NeonButton(
-                      label: "KART KALSIN",
-                      icon: Icons.check_circle_outline,
-                      baseColor: AppTheme.success,
-                      isLarge: true,
-                      onTap: () => notifier.finalizeInvestigation(false),
-                    ),
-                    const SizedBox(width: 16),
-                    NeonButton(
-                      label: "DEĞİŞTİR!",
-                      icon: Icons.swap_horiz,
-                      baseColor: AppTheme.danger,
-                      isLarge: true,
-                      onTap: () => notifier.finalizeInvestigation(true),
-                    ),
-                 ],
+               Padding(
+                 padding: const EdgeInsets.symmetric(horizontal: 24),
+                 child: Row(
+                   mainAxisAlignment: MainAxisAlignment.center,
+                   children: [
+                      Flexible(
+                        child: NeonButton(
+                          label: "KART KALSIN",
+                          icon: Icons.check_circle_outline,
+                          baseColor: AppTheme.success,
+                          isLarge: true,
+                          onTap: () => notifier.finalizeInvestigation(false),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Flexible(
+                        child: NeonButton(
+                          label: "DEĞİŞTİR!",
+                          icon: Icons.swap_horiz,
+                          baseColor: AppTheme.danger,
+                          isLarge: true,
+                          onTap: () => notifier.finalizeInvestigation(true),
+                        ),
+                      ),
+                   ],
+                 ),
                ),
                
                const SizedBox(height: 24),

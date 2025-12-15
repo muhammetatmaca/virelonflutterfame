@@ -124,7 +124,9 @@ enum GamePhase {
   resolution,        // Sonuç ekranı (kim ne kaybetti)
   exchange,          // Kart değişimi yapan oyuncu kart seçecek
   manipulation,      // Gazeteci kart dağıtımı yapacak
+  investigationHandover,   // Telefonu hedefe ver (Pass & Play)
   investigationCardSelect, // Hedef kart seçecek (Engizisyoncu sorgusu)
+  investigationReturn,     // Telefonu geri ver (Pass & Play)
   investigation,     // Engizisyoncu sorgu yapıyor (kartı gördü)
   kayyumBidding,     // Çoklu Kayyum - Avukatlar ilan ediliyor
   gameOver           // Oyun bitti
