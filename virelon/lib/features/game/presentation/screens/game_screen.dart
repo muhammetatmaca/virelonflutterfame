@@ -39,6 +39,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   List<Character> _manipulationMyHand = [];
   Character? _manipulationTargetCard;
   Character? _manipulationDeckCard;
+  Character? _selectedTargetCardForManipulation; // Gazeteci'nin seçtiği Ali kartı
+  bool _isRevealingCard = false; // Kart açılma animasyonu
+  Map<int, String> _manipulationAssignments = {}; // Index -> Nereye (target/self/deck)
+  Character? _selectedJournalistCard; // Gazeteci'nin seçtiği kendi kartı
+  List<Character> _currentManipulationPool = []; // Şu anki manipülasyon havuzu
 
   // Mock Avatars (using Character icons/colors for now)
   final List<Character> _avatarOptions = Character.values;
@@ -2096,90 +2101,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       );
   }
 
-  // --- Manipulation UI ---
-  Widget _buildManipulationUI(GameState state, GameNotifier notifier) {
-      final pool = state.manipulationCards;
-      
-      // Havuzda kalanları hesapla (Manuel çıkar)
-      List<Character> remainingPool = List.from(pool);
-      for (var c in _manipulationMyHand) remainingPool.remove(c);
-      if (_manipulationTargetCard != null) remainingPool.remove(_manipulationTargetCard);
-      if (_manipulationDeckCard != null) remainingPool.remove(_manipulationDeckCard);
-      
-      final totalCards = pool.length;
-      // Güvenlik: Eğer pool boşsa crash verme
-      if (totalCards == 0) return const SizedBox.shrink();
-
-      final myHandSize = totalCards - 2;
-
-      bool isComplete = _manipulationMyHand.length == myHandSize && 
-                        _manipulationTargetCard != null && 
-                        _manipulationDeckCard != null;
-
-      return Column(
-         children: [
-             Text("MANİPÜLASYON: KARTLARI DAĞIT", style: AppTheme.chip),
-             const SizedBox(height: 8),
-             
-             // POOL
-             SizedBox(
-                height: 100,
-                child: ListView.builder(
-                   scrollDirection: Axis.horizontal,
-                   itemCount: remainingPool.length,
-                   itemBuilder: (context, index) {
-                      final card = remainingPool[index];
-                      return GestureDetector(
-                         onTap: () {
-                            setState(() {
-                                // Boş yere ekle öncelik sırasına göre
-                                if (_manipulationMyHand.length < myHandSize) {
-                                   _manipulationMyHand.add(card);
-                                } else if (_manipulationTargetCard == null) {
-                                    _manipulationTargetCard = card;
-                                } else if (_manipulationDeckCard == null) {
-                                    _manipulationDeckCard = card;
-                                }
-                            });
-                         },
-                         child: Padding(padding: const EdgeInsets.all(4), child: GameCardWidget(character: card, width: 60, height: 90)),
-                      );
-                   }
-                ),
-             ),
-             
-             const Divider(color: Colors.white24),
-             
-             // SLOTS
-             SingleChildScrollView(
-               scrollDirection: Axis.horizontal,
-               child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                      _buildSlot("BENİM ELİM ($myHandSize)", _manipulationMyHand, (c) => setState(() => _manipulationMyHand.remove(c))),
-                      const SizedBox(width: 8),
-                      _buildSlot("RAKİP (1)", _manipulationTargetCard != null ? [_manipulationTargetCard!] : [], (c) => setState(() => _manipulationTargetCard = null)),
-                      const SizedBox(width: 8),
-                      _buildSlot("DESTE (1)", _manipulationDeckCard != null ? [_manipulationDeckCard!] : [], (c) => setState(() => _manipulationDeckCard = null)),
-                  ],
-               ),
-             ),
-             
-             const SizedBox(height: 16),
-             if (isComplete)
-                NeonButton(label: "DAĞITIMI ONAYLA", baseColor: AppTheme.success, onTap: () {
-                    notifier.finalizeManipulation(_manipulationMyHand, _manipulationTargetCard!, _manipulationDeckCard!);
-                    // Reset UI State
-                    setState(() {
-                       _manipulationMyHand = [];
-                       _manipulationTargetCard = null;
-                       _manipulationDeckCard = null;
-                    });
-                })
-         ],
-      );
-  }
-
 
   void _showBlockSelectionDialog(BuildContext context, Player blocker, GameState state, GameNotifier notifier) {
     // Hangi kartlarla bloklanabilir?
@@ -2406,24 +2327,350 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // Gazeteci Manipülasyon UI
   Widget _buildManipulationUI(GameState state, GameNotifier notifier) {
     final cards = state.manipulationCards;
-    if (cards.length < 3) return const Center(child: Text("Hata: Yeterli kart yok"));
+    if (cards.length < 3) return Center(child: Text("Hata: Yeterli kart yok (${cards.length}/3)"));
     
     final targetId = state.actionTargetId!;
     final target = state.players.firstWhere((p) => p.id == targetId);
     final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
     
-    // Pool: [Deste kartı (AÇIK), Ali kartı (KAPALI), Gazeteci kartı (AÇIK)]
+    // Pool: [Deste kartı (AÇIK), Ali kart 1 (KAPALI), Ali kart 2 (KAPALI)]
     final deckCard = cards[0]; // AÇIK
-    final targetCard = cards[1]; // KAPALI
-    final journalistCard = cards[2]; // AÇIK (Gazeteci'nin kendi kartı)
+    final targetCard1 = cards[1]; // KAPALI
+    final targetCard2 = cards[2]; // KAPALI
     
     return StatefulBuilder(
       builder: (context, setState) {
-        // Seçim durumları
-        Map<Character, String> assignments = {}; // Kart -> Nereye (target/self/deck)
+        // Kart seçme fonksiyonu (animasyonlu)
+        void selectCard(Character card) {
+          setState(() {
+            _selectedTargetCardForManipulation = card;
+            _isRevealingCard = true;
+          });
+          
+          // 2 saniye sonra manipülasyon ekranına geç
+          Future.delayed(const Duration(seconds: 2), () {
+            setState(() {
+              _isRevealingCard = false;
+            });
+          });
+        }
+        
+        // Eğer kart açılıyorsa, animasyon göster
+        if (_isRevealingCard && _selectedTargetCardForManipulation != null) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.purple.shade900, Colors.black],
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "KART AÇILIYOR...",
+                    style: AppTheme.headline.copyWith(
+                      color: Colors.purple.shade300,
+                      letterSpacing: 4,
+                    ),
+                  )
+                      .animate(onPlay: (c) => c.repeat())
+                      .shimmer(duration: 1.5.seconds),
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Kart flip animasyonu
+                  GameCardWidget(
+                    character: _selectedTargetCardForManipulation!,
+                    width: 180,
+                    height: 270,
+                    isRevealed: true,
+                  )
+                      .animate()
+                      .flipH(duration: 1.seconds, curve: Curves.easeInOut)
+                      .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.2, 1.2), duration: 0.5.seconds)
+                      .then()
+                      .scale(begin: const Offset(1.2, 1.2), end: const Offset(1, 1), duration: 0.5.seconds),
+                  
+                  const SizedBox(height: 40),
+                  
+                  Text(
+                    _selectedTargetCardForManipulation!.displayName.toUpperCase(),
+                    style: AppTheme.titleLarge.copyWith(
+                      color: _selectedTargetCardForManipulation!.color,
+                      fontSize: 32,
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 0.8.seconds, duration: 0.5.seconds)
+                      .slideY(begin: 0.5, end: 0, delay: 0.8.seconds),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        // Eğer henüz Ali'nin kartı seçilmediyse, önce seçim yap
+        if (_selectedTargetCardForManipulation == null) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.purple.shade900, Colors.black],
+              ),
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.touch_app, size: 70, color: Colors.purple.shade300)
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: 1.5.seconds),
+                      const SizedBox(height: 24),
+                      
+                      Text(
+                        "KART SEÇ",
+                        style: AppTheme.headline.copyWith(
+                          color: Colors.purple.shade300,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      Text(
+                        "${target.name}'in hangi kartını manipüle etmek istersin?",
+                        style: AppTheme.body.copyWith(color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                      
+                      const SizedBox(height: 40),
+                      
+                      // Ali'nin 2 kartı
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Kart 1
+                          GestureDetector(
+                            onTap: () => selectCard(targetCard1),
+                            child: Column(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.purple.withOpacity(0.5),
+                                        blurRadius: 15,
+                                        spreadRadius: 2,
+                                      )
+                                    ],
+                                  ),
+                                  child: GameCardWidget(
+                                    character: targetCard1,
+                                    width: 140,
+                                    height: 210,
+                                    isRevealed: false, // KAPALI
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                NeonButton(
+                                  label: "KART #1",
+                                  baseColor: Colors.purple.shade300,
+                                  isLarge: false,
+                                  onTap: () => selectCard(targetCard1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(width: 32),
+                          
+                          // Kart 2
+                          GestureDetector(
+                            onTap: () => selectCard(targetCard2),
+                            child: Column(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.purple.withOpacity(0.5),
+                                        blurRadius: 15,
+                                        spreadRadius: 2,
+                                      )
+                                    ],
+                                  ),
+                                  child: GameCardWidget(
+                                    character: targetCard2,
+                                    width: 140,
+                                    height: 210,
+                                    isRevealed: false, // KAPALI
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                NeonButton(
+                                  label: "KART #2",
+                                  baseColor: Colors.purple.shade300,
+                                  isLarge: false,
+                                  onTap: () => selectCard(targetCard2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Text(
+                          "💡 Seçtiğin kart açılacak ve manipülasyon havuzuna girecek.\nDiğer kart ${target.name}'de kalacak.",
+                          style: AppTheme.body.copyWith(fontSize: 12, color: Colors.white60),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        
+        // Ali'nin kartı seçildi ama Gazeteci'nin kartı henüz seçilmedi
+        if (_selectedTargetCardForManipulation != null && _selectedJournalistCard == null) {
+          final currentPlayer = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
+          
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.purple.shade900, Colors.black],
+              ),
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.touch_app, size: 70, color: Colors.green.shade300)
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: 1.5.seconds),
+                      const SizedBox(height: 24),
+                      
+                      Text(
+                        "KENDİ KARTINI SEÇ",
+                        style: AppTheme.headline.copyWith(
+                          color: Colors.green.shade300,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      Text(
+                        "Hangi kartını manipülasyona katmak istersin?",
+                        style: AppTheme.body.copyWith(color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                      
+                      const SizedBox(height: 40),
+                      
+                      // Gazeteci'nin 2 kartı (kalan kart + seçilecek kart)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: currentPlayer.hand.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final card = entry.value;
+                          
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedJournalistCard = card),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.green.withOpacity(0.5),
+                                          blurRadius: 15,
+                                          spreadRadius: 2,
+                                        )
+                                      ],
+                                    ),
+                                    child: GameCardWidget(
+                                      character: card,
+                                      width: 140,
+                                      height: 210,
+                                      isRevealed: true, // AÇIK (kendi kartın)
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  NeonButton(
+                                    label: "KART #${index + 1}",
+                                    baseColor: Colors.green.shade300,
+                                    isLarge: false,
+                                    onTap: () => setState(() => _selectedJournalistCard = card),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Text(
+                          "💡 Seçtiğin kart manipülasyon havuzuna girecek.\nDiğer kart elinde kalacak.",
+                          style: AppTheme.body.copyWith(fontSize: 12, color: Colors.white60),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        
+        // Kart seçildiyse, normal manipülasyon UI'ını göster
+        // Seçilmeyen kartı belirle
+        final unselectedCard = _selectedTargetCardForManipulation == targetCard1 ? targetCard2 : targetCard1;
+        
+        // Yeni pool: [Deste, Seçilen Ali kartı (AÇIK), Seçilen Gazeteci kartı (AÇIK)]
+        final manipulationPool = [deckCard, _selectedTargetCardForManipulation!, _selectedJournalistCard!];
+        _currentManipulationPool = manipulationPool; // Class variable'a ata
         
         // Seçim yapma fonksiyonu
-        void assignCard(Character card) {
+        void assignCard(int cardIndex) {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -2436,34 +2683,34 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Ali'ye ver
-                  if (!assignments.values.contains('target'))
+                  if (!_manipulationAssignments.values.contains('target'))
                     ListTile(
                       leading: Icon(Icons.person, color: AppTheme.warning),
                       title: Text("${target.name}'e ver", style: TextStyle(color: Colors.white)),
                       onTap: () {
-                        setState(() => assignments[card] = 'target');
+                        setState(() => _manipulationAssignments[cardIndex] = 'target');
                         Navigator.pop(ctx);
                       },
                     ),
                   
                   // Kendine al
-                  if (!assignments.values.contains('self'))
+                  if (!_manipulationAssignments.values.contains('self'))
                     ListTile(
                       leading: Icon(Icons.account_circle, color: AppTheme.success),
                       title: Text("Kendine al", style: TextStyle(color: Colors.white)),
                       onTap: () {
-                        setState(() => assignments[card] = 'self');
+                        setState(() => _manipulationAssignments[cardIndex] = 'self');
                         Navigator.pop(ctx);
                       },
                     ),
                   
                   // Desteye at
-                  if (!assignments.values.contains('deck'))
+                  if (!_manipulationAssignments.values.contains('deck'))
                     ListTile(
                       leading: Icon(Icons.layers, color: AppTheme.danger),
                       title: Text("Desteye at", style: TextStyle(color: Colors.white)),
                       onTap: () {
-                        setState(() => assignments[card] = 'deck');
+                        setState(() => _manipulationAssignments[cardIndex] = 'deck');
                         Navigator.pop(ctx);
                       },
                     ),
@@ -2474,15 +2721,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         }
         
         // Seçimi iptal et
-        void unassignCard(Character card) {
-          setState(() => assignments.remove(card));
+        void unassignCard(int cardIndex) {
+          setState(() => _manipulationAssignments.remove(cardIndex));
         }
         
         // Tamamlanabilir mi?
-        bool canComplete = assignments.length == 3 &&
-                          assignments.values.contains('target') &&
-                          assignments.values.contains('self') &&
-                          assignments.values.contains('deck');
+        bool canComplete = _manipulationAssignments.length == 3 &&
+                          _manipulationAssignments.values.contains('target') &&
+                          _manipulationAssignments.values.contains('self') &&
+                          _manipulationAssignments.values.contains('deck');
         
         return Container(
           decoration: BoxDecoration(
@@ -2521,45 +2768,35 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     
                     const SizedBox(height: 40),
                     
-                    // 3 Kart Gösterimi
+                    // 3 Kart Gösterimi (Seçilen kartlar)
                     Wrap(
                       alignment: WrapAlignment.center,
                       spacing: 16,
                       runSpacing: 16,
-                      children: [
-                        // Deste Kartı (AÇIK)
-                        _buildManipulationCardWithSelection(
-                          card: deckCard,
-                          isFaceDown: false,
-                          label: "DESTEDEN",
-                          assignment: assignments[deckCard],
-                          targetName: target.name,
-                          onTap: () => assignCard(deckCard),
-                          onClear: () => unassignCard(deckCard),
-                        ),
+                      children: manipulationPool.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final card = entry.value;
+                        // Tüm kartlar AÇIK (seçilen Ali kartı da açıldı)
+                        final isFaceDown = false;
+                        String label;
+                        if (card == deckCard) {
+                          label = "DESTEDEN";
+                        } else if (card == _selectedTargetCardForManipulation) {
+                          label = "${target.name}'IN KARTI";
+                        } else {
+                          label = "SENİN KARTIN";
+                        }
                         
-                        // Ali'nin Kartı (KAPALI)
-                        _buildManipulationCardWithSelection(
-                          card: targetCard,
-                          isFaceDown: true,
-                          label: "${target.name}'IN KARTI",
-                          assignment: assignments[targetCard],
+                        return _buildManipulationCardWithSelection(
+                          card: card,
+                          isFaceDown: isFaceDown,
+                          label: label,
+                          assignment: _manipulationAssignments[index],
                           targetName: target.name,
-                          onTap: () => assignCard(targetCard),
-                          onClear: () => unassignCard(targetCard),
-                        ),
-                        
-                        // Gazeteci'nin Kartı (AÇIK)
-                        _buildManipulationCardWithSelection(
-                          card: journalistCard,
-                          isFaceDown: false,
-                          label: "SENİN KARTIN",
-                          assignment: assignments[journalistCard],
-                          targetName: target.name,
-                          onTap: () => assignCard(journalistCard),
-                          onClear: () => unassignCard(journalistCard),
-                        ),
-                      ],
+                          onTap: () => assignCard(index),
+                          onClear: () => unassignCard(index),
+                        );
+                      }).toList(),
                     ),
                     
                     const SizedBox(height: 40),
@@ -2576,6 +2813,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
+                            "3 karttan seç:\n"
                             "• 1 kart → ${target.name}'e ver\n"
                             "• 1 kart → Kendine al\n"
                             "• 1 kart → Desteye at",
@@ -2584,7 +2822,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "Seçim: ${assignments.length}/3",
+                            "Seçim: ${_manipulationAssignments.length}/3",
                             style: AppTheme.chip.copyWith(
                               color: canComplete ? AppTheme.success : Colors.amber,
                             ),
@@ -2601,13 +2839,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       icon: canComplete ? Icons.check : Icons.touch_app,
                       baseColor: canComplete ? AppTheme.success : Colors.grey,
                       isLarge: true,
-                      onTap: canComplete ? () {
-                        // Seçimleri bul
+                      onTap: () {
+                        if (!canComplete) return; // Tamamlanmadıysa hiçbir şey yapma
+                        
+                        // Seçimleri bul (index -> assignment)
                         Character? cardToTarget;
                         Character? cardToSelf;
                         Character? cardToDeck;
                         
-                        assignments.forEach((card, assignment) {
+                        _manipulationAssignments.forEach((index, assignment) {
+                          final card = _currentManipulationPool[index];
                           if (assignment == 'target') cardToTarget = card;
                           if (assignment == 'self') cardToSelf = card;
                           if (assignment == 'deck') cardToDeck = card;
@@ -2615,8 +2856,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         
                         if (cardToTarget != null && cardToSelf != null && cardToDeck != null) {
                           notifier.finalizeManipulation(cardToTarget!, cardToSelf!, cardToDeck!);
+                          // State'i temizle
+                          setState(() {
+                            _manipulationAssignments.clear();
+                            _currentManipulationPool.clear();
+                            _selectedTargetCardForManipulation = null;
+                            _selectedJournalistCard = null;
+                            _isRevealingCard = false;
+                          });
                         }
-                      } : null,
+                      },
                     ),
                   ],
                 ),
@@ -2676,7 +2925,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               character: card,
               width: 120,
               height: 180,
-              isFaceDown: isFaceDown,
+              isRevealed: !isFaceDown,
             ),
           ),
           const SizedBox(height: 8),

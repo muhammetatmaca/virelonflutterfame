@@ -182,33 +182,20 @@ class GameCardWidget extends StatelessWidget {
       borderColor: Colors.grey.withOpacity(0.3),
       child: Container(
         color: const Color(0xFF101010),
-        child: Stack(
-          alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-             Opacity(
-               opacity: 0.1,
-               child: Image.asset(
-                 'assets/images/cards/card_back.png', 
-                 fit: BoxFit.cover,
-                 errorBuilder: (_,__,___) => const Icon(Icons.pattern, size: 100, color: Colors.white),
-               ),
-             ),
-             Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.hub, size: 32, color: Colors.grey[600]),
-                const SizedBox(height: 5),
-                Text(
-                  "VIRELON",
-                  style: AppTheme.titleMedium.copyWith(
-                    color: Colors.grey[600], 
-                    fontSize: 14,
-                    letterSpacing: 3
-                  ),
-                )
-              ],
+            Icon(Icons.style, size: 48, color: Colors.grey[600]),
+            const SizedBox(height: 8),
+            Text(
+              '?',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ]
+          ],
         ),
       ),
     );

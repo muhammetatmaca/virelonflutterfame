@@ -498,8 +498,8 @@ class GameEngine {
            : "Elçi kart değişimi yapıyor (2 kart)...",
        );
     } else if (action == GameAction.manipulate) {
-       // Gazeteci: Ali'nin 1 kartı (KAPALI) + Desteden 1 kart (AÇIK) + Gazeteci'nin 1 kartı
-       // Toplam 3 kart: Gazeteci dağıtır: 1 Ali'ye, 1 kendine, 1 desteye
+       // Gazeteci: Ali'nin 2 kartı (KAPALI) + Desteden 1 kart (AÇIK)
+       // Gazeteci kendi kartını UI'da seçecek
        
        List<Character> deck = List.from(state.deck);
        List<Character> pool = [];
@@ -509,39 +509,23 @@ class GameEngine {
          pool.add(deck.removeLast());
        }
        
-       // 2. Ali'nin kartlarından 1'ini al (KAPALI - Gazeteci görmeyecek)
+       // 2. Ali'nin 2 kartını da al (KAPALI - Gazeteci görmeyecek)
        final targetP = updatedPlayers.firstWhere((p) => p.id == targetId);
-       if (targetP.hand.isNotEmpty) {
-         List<Character> targetHand = List.from(targetP.hand);
-         final takenCard = targetHand.removeAt(0); // İlk kartı al
-         pool.add(takenCard); // Havuza ekle (KAPALI)
-         
-         // Ali'nin elini güncelle (1 kart kaldı)
-         updatedPlayers = updatedPlayers.map((p) {
-             if (p.id == targetId) return p.copyWith(hand: targetHand);
-             return p;
-         }).toList();
-       }
+       pool.addAll(targetP.hand); // Ali'nin 2 kartı
        
-       // 3. Gazeteci'nin kartlarından 1'ini al
-       final me = updatedPlayers.firstWhere((p) => p.id == initiatorId);
-       if (me.hand.isNotEmpty) {
-         List<Character> myHand = List.from(me.hand);
-         final myCard = myHand.removeAt(0); // İlk kartı al
-         pool.add(myCard); // Havuza ekle
-         
-         // Gazeteci'nin elini güncelle (1 kart kaldı)
-         updatedPlayers = updatedPlayers.map((p) {
-             if (p.id == initiatorId) return p.copyWith(hand: myHand);
-             return p;
-         }).toList();
-       }
+       // 3. Ali'nin elini GEÇİCİ olarak boşalt (Gazeteci seçim yapınca 1 kart geri verilecek)
+       updatedPlayers = updatedPlayers.map((p) {
+           if (p.id == targetId) return p.copyWith(hand: []);
+           return p;
+       }).toList();
+       
+       // NOT: Gazeteci'nin kartı UI'da seçilecek, pool'a eklenmedi
        
        return state.copyWith(
          players: updatedPlayers,
          deck: deck,
          phase: GamePhase.manipulation,
-         manipulationCards: pool, // [Deste kartı, Ali kartı, Gazeteci kartı]
+         manipulationCards: pool, // [Deste kartı, Ali kart 1, Ali kart 2]
          lastLog: "Gazeteci manipülasyon yapıyor! Kartları seç.",
        );
     } else if (action == GameAction.investigate && targetId != null) {
@@ -635,23 +619,47 @@ class GameEngine {
     final initiatorId = state.actionInitiatorId!;
     final targetId = state.actionTargetId!;
     
+    // Pool'da 4 kart var: [Deste, Ali #1, Ali #2, Gazeteci]
+    // Gazeteci 3 kart seçti: cardToTarget, cardToSelf, cardToDeck
+    // Seçilmeyen 1 kart → Ali'ye geri dönecek
+    
+    final pool = state.manipulationCards;
+    final selectedCards = [cardToTarget, cardToSelf, cardToDeck];
+    final unselectedCard = pool.firstWhere((card) => !selectedCards.contains(card));
+    
     // 1. Desteyi hazırla
     List<Character> updatedDeck = List.from(state.deck);
-    updatedDeck.add(cardToDeck); // Gazeteci'nin desteye attığı kart
+    updatedDeck.add(cardToDeck);
     updatedDeck.shuffle();
     
     // 2. Oyuncuların elini güncelle
     List<Player> updatedPlayers = state.players.map((p) {
       if (p.id == initiatorId) {
-        // Gazeteci: Kalan 1 kart + Seçtiği 1 kart = 2 kart
+        // Gazeteci: Elindeki kartlardan seçtiği kartı çıkar, cardToSelf'i ekle
+        // Gazeteci'nin elinde 2 kart vardı, birini seçti (pool'a gitti)
+        // Şimdi: Seçilmeyen kart + cardToSelf = 2 kart
         List<Character> newHand = List.from(p.hand);
-        newHand.add(cardToSelf);
-        return p.copyWith(hand: newHand);
+        
+        // Seçilen kartı bul ve çıkar (cardToSelf, cardToDeck veya cardToTarget olabilir)
+        // Pool'daki kartlar: [deckCard, targetCard (seçilen), journalistCard (seçilen)]
+        // Gazeteci'nin seçtiği kart pool'da, onu elinden çıkarmalıyız
+        final pool = state.manipulationCards;
+        final selectedJournalistCard = [cardToSelf, cardToDeck, cardToTarget]
+            .firstWhere((card) => !pool.contains(card) && p.hand.contains(card), 
+                       orElse: () => cardToSelf); // Fallback
+        
+        // Daha basit: Gazeteci'nin elinde 2 kart var, pool'da olmayan 1 kart seçilmemiş
+        // O kartı bul
+        final unselectedJournalistCard = p.hand.firstWhere(
+          (card) => ![cardToSelf, cardToDeck, cardToTarget].contains(card),
+          orElse: () => p.hand.first,
+        );
+        
+        // Yeni el: Seçilmeyen kart + cardToSelf
+        return p.copyWith(hand: [unselectedJournalistCard, cardToSelf]);
       } else if (p.id == targetId) {
-        // Ali: Kalan 1 kart + Gazeteci'nin verdiği 1 kart = 2 kart
-        List<Character> newHand = List.from(p.hand);
-        newHand.add(cardToTarget);
-        return p.copyWith(hand: newHand);
+        // Ali: Seçilmeyen kart + Gazeteci'nin verdiği kart = 2 kart
+        return p.copyWith(hand: [unselectedCard, cardToTarget]);
       }
       return p;
     }).toList();
@@ -659,7 +667,7 @@ class GameEngine {
     return _nextTurn(state.copyWith(
        players: updatedPlayers,
        deck: updatedDeck,
-       manipulationCards: [], // Havuzu temizle
+       manipulationCards: [],
        lastLog: "Gazeteci kartları yeniden dağıttı!"
      ));
   }
