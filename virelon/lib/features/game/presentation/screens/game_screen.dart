@@ -531,15 +531,36 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         ),
                         child: Column(
                            children: [
-                              Icon(Character.ambassador.icon, color: Colors.white),
+                              Icon(Character.ambassador.icon, color: Colors.white, size: 20),
                               const SizedBox(height: 4),
-                              const Text("ELÇİ", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              const Text("ELÇİ", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                            ]
                         )
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _plusModeVariant2 = Character.inquisitor),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _plusModeVariant2 == Character.inquisitor ? Character.inquisitor.color.withOpacity(0.4) : Colors.transparent,
+                          border: Border.all(color: _plusModeVariant2 == Character.inquisitor ? Character.inquisitor.color : Colors.white24),
+                          borderRadius: BorderRadius.circular(8)
+                        ),
+                        child: Column(
+                           children: [
+                              Icon(Character.inquisitor.icon, color: Colors.white, size: 20),
+                              const SizedBox(height: 4),
+                              const Text("ENGİZ.", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                           ]
+                        )
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: GestureDetector(
                       onTap: () => setState(() => _plusModeVariant2 = Character.gazeteci),
@@ -552,9 +573,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         ),
                         child: Column(
                            children: [
-                              Icon(Character.gazeteci.icon, color: Colors.white),
+                              Icon(Character.gazeteci.icon, color: Colors.white, size: 20),
                               const SizedBox(height: 4),
-                              const Text("GAZETECİ", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              const Text("GAZ.", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                            ]
                         )
                       ),
