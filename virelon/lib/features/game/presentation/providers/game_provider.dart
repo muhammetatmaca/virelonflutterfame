@@ -63,8 +63,8 @@ class GameNotifier extends StateNotifier<GameState> {
     state = _engine.completeExchange(state, keptCards);
   }
   
-  void finalizeManipulation(List<Character> myNewHand, Character cardToTarget, Character cardToDeck) {
-    state = _engine.completeManipulation(state, myNewHand, cardToTarget, cardToDeck);
+  void finalizeManipulation(Character cardToTarget, Character cardToSelf, Character cardToDeck) {
+    state = _engine.completeManipulation(state, cardToTarget, cardToSelf, cardToDeck);
   }
 
   // Hedef, Engizisyoncu'ya göstereceği kartı seçer
