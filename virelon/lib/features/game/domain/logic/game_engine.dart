@@ -713,23 +713,36 @@ class GameEngine {
     }
 
     if (isDetailsCorrect && shownCard != null) {
-        // --- CHALLENGED KAZANDI (Isplatladı) ---
+        // --- CHALLENGED KAZANDI (Ispatladı) ---
         
-        // 1. Kartı desteye koy, karıştır, yeni çek (Recycle Rule)
         final challengedPlayer = state.players.firstWhere((p) => p.id == challengedId);
         List<Character> newHand = List.from(challengedPlayer.hand);
-        
-        // UI'dan gelen shownCard instance'ı listede olmayabilir (Enum olduğu için sorun yok ama referans hatası olmasın)
-        // Enum equality works fine.
-        newHand.remove(shownCard); 
-        
         List<Character> updatedDeck = List.from(state.deck);
-        updatedDeck.add(shownCard);
-        updatedDeck.shuffle();
         
-        // Yeni kart çek
-        if (updatedDeck.isNotEmpty) {
-           newHand.add(updatedDeck.removeLast());
+        // ZİMMET özel: TÜM kartları göster ve yenilerini çek
+        if (isActionChallenge && state.currentAction == GameAction.embezzle) {
+          // Tüm kartları desteye koy
+          for (var card in newHand) {
+            updatedDeck.add(card);
+          }
+          updatedDeck.shuffle();
+          
+          // Aynı sayıda yeni kart çek
+          int cardCount = newHand.length;
+          newHand.clear();
+          for (int i = 0; i < cardCount && updatedDeck.isNotEmpty; i++) {
+            newHand.add(updatedDeck.removeLast());
+          }
+        } else {
+          // Normal challenge: Sadece gösterilen kartı değiştir
+          newHand.remove(shownCard); 
+          updatedDeck.add(shownCard);
+          updatedDeck.shuffle();
+          
+          // Yeni kart çek
+          if (updatedDeck.isNotEmpty) {
+             newHand.add(updatedDeck.removeLast());
+          }
         }
         
         List<Player> updatedPlayers = state.players.map((p) {
@@ -748,6 +761,51 @@ class GameEngine {
 
     } else {
         // --- CHALLENGED KAYBETTİ (Blöf Yakalandı / Gösteremedi) ---
+        
+        // ZİMMET özel durumu: Dük varsa otomatik kaybeder
+        if (isActionChallenge && state.currentAction == GameAction.embezzle && shownCard == Character.duke) {
+          // Dük kartını otomatik kaybet
+          final challengedPlayer = state.players.firstWhere((p) => p.id == challengedId);
+          List<Character> newHand = List.from(challengedPlayer.hand);
+          newHand.remove(Character.duke);
+          
+          List<Character> newRevealed = List.from(challengedPlayer.revealedCards);
+          newRevealed.add(Character.duke);
+          
+          bool isNowDead = newHand.isEmpty;
+          int poolIncrease = 0;
+          
+          if (isNowDead) {
+            bool hasLawyer = state.players.any((p) => 
+              p.cards.contains(Character.avukat) || p.revealedCards.contains(Character.avukat)
+            );
+            if (!hasLawyer) {
+              poolIncrease = challengedPlayer.coins;
+            }
+          }
+          
+          List<Player> updatedPlayers = state.players.map((p) {
+            if (p.id == challengedId) {
+              return p.copyWith(
+                cards: newHand,
+                revealedCards: newRevealed,
+                isAlive: !isNowDead,
+                coins: poolIncrease > 0 ? 0 : p.coins,
+              );
+            }
+            return p;
+          }).toList();
+          
+          return _nextTurn(state.copyWith(
+            players: updatedPlayers,
+            pool: state.pool + poolIncrease,
+            currentAction: null,
+            actionInitiatorId: null,
+            actionTargetId: null,
+            claimedCharacter: null,
+            lastLog: "${challengedPlayer.name} Dük kartını kaybetti! Zimmet başarısız."
+          ));
+        }
         
         // 1. Action/Block İptal ve Para İadesi
         int refundAmount = 0;
@@ -938,13 +996,53 @@ class GameEngine {
     );
     
     
+    
+    
     // 8. Eğer blocker blöf yaparken yakalandıysa, hamle devam etmeli
-    // ANCAK: Suikast kurbanı için bu geçerli değil!
-    if (current.currentAction != null && victimId == current.blockerId && current.currentAction != GameAction.assassinate) {
-      // Blocker kaybetti, hamleyi uygula
+    // ANCAK: Bazı actionlar için özel durumlar var
+    
+    // Action challenge kaybedildi ise (blocker değil, action initiator kaybetti)
+    // Bu durumda action iptal, resolveSuccess çağrılmamalı
+    bool isActionInitiatorLost = victimId == current.actionInitiatorId;
+    
+    if (current.currentAction != null && victimId == current.blockerId && !isActionInitiatorLost) {
+      // Blocker kaybetti
+      
+      // Suikast: Zaten para alındı, tekrar uygulanmamalı
+      if (current.currentAction == GameAction.assassinate) {
+        return _nextTurn(newState.copyWith(
+          currentAction: null,
+          actionInitiatorId: null,
+          actionTargetId: null,
+          blockerId: null,
+          claimedCharacter: null
+        ));
+      }
+      
+      // Foreign Aid, Tax, Steal: resolveSuccess'te uygulanıyor, çağrılmalı
       return resolveSuccess(newState.copyWith(
         blockerId: null,
-        phase: GamePhase.actionPending // resolveSuccess için doğru faz
+        phase: GamePhase.actionPending
+      ));
+    }
+    
+    // Action initiator challenge kaybettiyse, action iptal
+    if (isActionInitiatorLost && current.currentAction != null) {
+      return _nextTurn(newState.copyWith(
+        currentAction: null,
+        actionInitiatorId: null,
+        actionTargetId: null,
+        blockerId: null,
+        claimedCharacter: null
+      ));
+    }
+    
+    // 8b. ZİMMET için: Challenger kaybettiyse (zimmet yapan kazandı), hamleyi uygula
+    if (current.currentAction == GameAction.embezzle && victimId != current.actionInitiatorId) {
+      // Challenger kaybetti, zimmet başarılı
+      return resolveSuccess(newState.copyWith(
+        blockerId: null,
+        phase: GamePhase.actionPending
       ));
     }
 

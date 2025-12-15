@@ -760,53 +760,53 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                Text("VIRELON", style: AppTheme.titleMedium.copyWith(letterSpacing: 2)),
-                const SizedBox(width: 12),
-                // Para Havuzları
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Para Havuzu
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.2),
-                        border: Border.all(color: Colors.greenAccent.withOpacity(0.6)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.account_balance_wallet, color: Colors.greenAccent, size: 14),
-                          const SizedBox(width: 4),
-                          Text("${gameState.pool}", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-                        ],
-                      ),
+              Text("VIRELON", style: AppTheme.titleMedium.copyWith(letterSpacing: 2, fontSize: 14)),
+              const SizedBox(width: 8),
+              // Para Havuzları
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Para Havuzu
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.2),
+                      border: Border.all(color: Colors.greenAccent.withOpacity(0.6)),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    const SizedBox(width: 8),
-                    // Kara Para
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.deepPurple.withOpacity(0.2),
-                        border: Border.all(color: Colors.purpleAccent.withOpacity(0.6)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.money_off, color: Colors.purpleAccent, size: 14),
-                          const SizedBox(width: 4),
-                          Text("${gameState.treasury}", style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-                        ],
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.account_balance_wallet, color: Colors.greenAccent, size: 12),
+                        const SizedBox(width: 3),
+                        Text("${gameState.pool}", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 11)),
+                      ],
                     ),
-                  ],
-                )
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Kara Para
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.withOpacity(0.2),
+                      border: Border.all(color: Colors.purpleAccent.withOpacity(0.6)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.money_off, color: Colors.purpleAccent, size: 12),
+                        const SizedBox(width: 3),
+                        Text("${gameState.treasury}", style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            ],
           ),
-          
+        ),
+        
             Flexible(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1265,19 +1265,63 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 
                 const SizedBox(height: 20),
                 
-                Text(
-                  "Elindeki kartlardan birini seç:",
-                  style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12),
-                ),
+                // ZİMMET için özel: Sadece tüm kartları göster butonu
+                if (isEmbezzle) ...[
+                  Text(
+                    "Tüm kartlarını göster ve kanıtla:",
+                    style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Kartları göster (sadece görsel)
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: challenged.cards.map((card) {
+                      return GameCardWidget(
+                        character: card,
+                        width: 90,
+                        height: 135,
+                        isRevealed: true,
+                      ).animate().scale(delay: 200.ms);
+                    }).toList(),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  NeonButton(
+                    label: "TÜM KARTLARIMI GÖSTER",
+                    icon: Icons.visibility,
+                    baseColor: AppTheme.success,
+                    onTap: () {
+                      // Dük varsa ilkini gönder, yoksa ilk kartı gönder
+                      final hasDuke = challenged.cards.any((c) => c == Character.duke);
+                      if (hasDuke) {
+                        notifier.verifyChallenge(Character.duke);
+                      } else {
+                        notifier.verifyChallenge(challenged.cards.first);
+                      }
+                    },
+                  ),
+                ],
                 
-                const SizedBox(height: 16),
-                
-                // Kartları göster
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: challenged.cards.map((card) {
+                // Normal challenge için kart seçimi
+                if (!isEmbezzle) ...[
+                  Text(
+                    "Elindeki kartlardan birini seç:",
+                    style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Kartları göster
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: challenged.cards.map((card) {
                     return GestureDetector(
                       onTap: () {
                         notifier.verifyChallenge(card);
@@ -1315,27 +1359,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     notifier.verifyChallenge(null);
                   },
                 ),
-                
-                // ZİMMET için özel: Tüm kartları göster butonu
-                if (isEmbezzle) ...[
-                  const SizedBox(height: 12),
-                  NeonButton(
-                    label: "TÜM KARTLARIMI GÖSTER",
-                    icon: Icons.visibility,
-                    baseColor: AppTheme.success,
-                    onTap: () {
-                      // Tüm kartları kontrol et, Dük varsa ilkini gönder
-                      final hasDuke = challenged.cards.any((c) => c == Character.duke);
-                      if (hasDuke) {
-                        // Dük var - blöf yakalandı, Dük kartını göster
-                        notifier.verifyChallenge(Character.duke);
-                      } else {
-                        // Dük yok - iddia doğru, herhangi bir kartı gönder (sistem tüm kartları kontrol edecek)
-                        notifier.verifyChallenge(challenged.cards.first);
-                      }
-                    },
-                  ),
                 ],
+                
               ],
             ),
           ).animate().fadeIn().scale(),
