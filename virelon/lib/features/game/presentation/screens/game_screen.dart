@@ -760,17 +760,53 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("VIRELON", style: AppTheme.titleMedium.copyWith(letterSpacing: 2)),
-                  const SizedBox(width: 12),
-                  // Hazine (Havuz)
-                  // Hazine (Havuz) - Center'a taşındı
-                  if (false) ...[
-                    Container() 
-                  ]
-                ],
-              ),
+                Text("VIRELON", style: AppTheme.titleMedium.copyWith(letterSpacing: 2)),
+                const SizedBox(width: 12),
+                // Para Havuzları
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Para Havuzu
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.2),
+                        border: Border.all(color: Colors.greenAccent.withOpacity(0.6)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.account_balance_wallet, color: Colors.greenAccent, size: 14),
+                          const SizedBox(width: 4),
+                          Text("${gameState.pool}", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Kara Para
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.withOpacity(0.2),
+                        border: Border.all(color: Colors.purpleAccent.withOpacity(0.6)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.money_off, color: Colors.purpleAccent, size: 14),
+                          const SizedBox(width: 4),
+                          Text("${gameState.treasury}", style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              ],
             ),
-            
+          ),
+          
             Flexible(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1081,15 +1117,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                            const SizedBox(width: 8),
                        ],
 
-                       // Elçi (Sorgu + Değişim) - Plus modda
+                       // Elçi (Sadece Değişim) - Plus modda
                        if (_isPlusMode && _plusModeVariant2 == Character.ambassador) ...[
-                           NeonButton(label: "SORGU", icon: Icons.search, baseColor: Colors.indigo, onTap: () => _showTargetDialog(context, GameAction.investigate, notifier, gameState.players)),
-                           const SizedBox(width: 8),
                            NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
                            const SizedBox(width: 8),
                        ],
 
-                       // Engizisyoncu (Sorgu + Değişim)
+                       // Engizisyoncu (Sorgu + Değişim) - Plus modda
                        if (_isPlusMode && _plusModeVariant2 == Character.inquisitor) ...[
                            NeonButton(label: "SORGU", icon: Icons.search, baseColor: Colors.orange, onTap: () => _showTargetDialog(context, GameAction.investigate, notifier, gameState.players)),
                            const SizedBox(width: 8),
@@ -1195,6 +1229,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     
     final challenged = state.players.firstWhere((p) => p.id == challengedId);
     final claimedChar = state.claimedCharacter;
+    final isEmbezzle = state.currentAction == GameAction.embezzle;
     
     return Center(
       child: SingleChildScrollView(
@@ -1221,7 +1256,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 const SizedBox(height: 12),
                 
                 Text(
-                  "${challenged.name}, ${claimedChar?.displayName ?? 'kart'} kartını göstermelisin!",
+                  isEmbezzle 
+                    ? "${challenged.name}, Dük olmadığını kanıtlamalısın!"
+                    : "${challenged.name}, ${claimedChar?.displayName ?? 'kart'} kartını göstermelisin!",
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
@@ -1278,6 +1315,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     notifier.verifyChallenge(null);
                   },
                 ),
+                
+                // ZİMMET için özel: Tüm kartları göster butonu
+                if (isEmbezzle) ...[
+                  const SizedBox(height: 12),
+                  NeonButton(
+                    label: "TÜM KARTLARIMI GÖSTER",
+                    icon: Icons.visibility,
+                    baseColor: AppTheme.success,
+                    onTap: () {
+                      // Tüm kartları kontrol et, Dük varsa ilkini gönder
+                      final hasDuke = challenged.cards.any((c) => c == Character.duke);
+                      if (hasDuke) {
+                        // Dük var - blöf yakalandı, Dük kartını göster
+                        notifier.verifyChallenge(Character.duke);
+                      } else {
+                        // Dük yok - iddia doğru, herhangi bir kartı gönder (sistem tüm kartları kontrol edecek)
+                        notifier.verifyChallenge(challenged.cards.first);
+                      }
+                    },
+                  ),
+                ],
               ],
             ),
           ).animate().fadeIn().scale(),

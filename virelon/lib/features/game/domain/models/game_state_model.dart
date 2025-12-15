@@ -5,7 +5,8 @@ import 'player_model.dart';
 class GameState extends Equatable {
   final List<Player> players;
   final List<Character> deck; // Kalan kartlar
-  final int treasury; // Hazine (Plus modu)
+  final int pool; // Para Havuzu (Normal oyun parası)
+  final int treasury; // Kara Para (DÖNÜŞ/BASKI parası)
   final String? currentPlayerId;
   final GamePhase phase;
   
@@ -29,6 +30,7 @@ class GameState extends Equatable {
   const GameState({
     required this.players,
     this.deck = const [],
+    this.pool = 50,
     this.treasury = 0,
     this.currentPlayerId,
     this.phase = GamePhase.setup,
@@ -48,6 +50,7 @@ class GameState extends Equatable {
   GameState copyWith({
     List<Player>? players,
     List<Character>? deck,
+    int? pool,
     int? treasury,
     String? currentPlayerId,
     GamePhase? phase,
@@ -66,6 +69,7 @@ class GameState extends Equatable {
     return GameState(
       players: players ?? this.players,
       deck: deck ?? this.deck,
+      pool: pool ?? this.pool,
       treasury: treasury ?? this.treasury,
       currentPlayerId: currentPlayerId ?? this.currentPlayerId,
       phase: phase ?? this.phase,
@@ -87,6 +91,7 @@ class GameState extends Equatable {
   List<Object?> get props => [
         players,
         deck,
+        pool,
         treasury,
         currentPlayerId,
         phase,

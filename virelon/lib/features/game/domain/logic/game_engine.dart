@@ -65,12 +65,13 @@ class GameEngine {
     newPlayers[0] = newPlayers[0].copyWith(isTurn: true);
 
     // Kasa Hesabı: Toplam 50 altından dağıtılanları düş
-    int initialTreasury = 50 - (newPlayers.length * 2);
+    int initialPool = 50 - (newPlayers.length * 2);
 
     return GameState(
       players: newPlayers,
       deck: masterDeck,
-      treasury: initialTreasury,
+      pool: initialPool, // Para Havuzu
+      treasury: 0, // Kara Para (başlangıçta 0)
       currentPlayerId: newPlayers[0].id,
       phase: GamePhase.assigningRoles, // Start with Role Reveal
       lastLog: 'Roller Dağıtılıyor...',
@@ -125,10 +126,11 @@ class GameEngine {
       return _applyActionImmediate(current, playerId, action, targetId);
     }
     
-    // Suikast ve Baskı için para peşin düşülür (Kural: Bloklanırsa para yanar)
+    // Suikast için para peşin düşülür (Kural: Bloklanırsa para yanar)
+    // BASKI (convertOther) direkt uygulandığı için burada para alınmaz
     GameState processedState = current;
-    if (action == GameAction.assassinate || action == GameAction.convertOther) {
-        int cost = (action == GameAction.assassinate) ? 3 : 2;
+    if (action == GameAction.assassinate) {
+        int cost = 3;
         final player = current.players.firstWhere((p) => p.id == playerId);
         
         // Yeterli para kontrolü
@@ -138,7 +140,7 @@ class GameEngine {
           players: current.players.map((p) => 
             p.id == playerId ? p.copyWith(coins: p.coins - cost) : p
           ).toList(),
-          treasury: current.treasury + cost // Para hazineye gider
+          pool: current.pool + cost // Suikast parası pool'a
         );
     }
 
@@ -148,9 +150,9 @@ class GameEngine {
     else if (action == GameAction.steal) claimedChar = Character.captain;
     else if (action == GameAction.assassinate) claimedChar = Character.assassin;
     else if (action == GameAction.exchange) claimedChar = Character.ambassador;
-    else if (action == GameAction.investigate) claimedChar = Character.ambassador; // Elçi (Inquisitor mekaniği)
+    else if (action == GameAction.investigate) claimedChar = Character.inquisitor; // Sadece Engizisyoncu
     else if (action == GameAction.embezzle) claimedChar = Character.duke; // TERS MANTIK: Duke OLMAMALI
-    // convertOther (BASKI): Karakter iddiası yok, herkes yapabilir (sadece Avukat blokleyebilir)
+    // convertOther (BASKI): Karakter iddiası yok, herkes yapabilir
     
     // Kayyum için Avukat iddiası ve listeye ekleme
     List<String> claimants = [];
@@ -176,12 +178,18 @@ class GameEngine {
       );
     }
     
+    
     // convertOther (BASKI): Bloklanamaz, meydan okunamaz - Direkt uygula
     if (action == GameAction.convertOther) {
       if (targetId == null) return processedState;
       
       final updatedPlayers = processedState.players.map((p) {
+        if (p.id == playerId) {
+          // 2 coin öde
+          return p.copyWith(coins: p.coins - 2);
+        }
         if (p.id == targetId && p.ideology != null) {
+          // Takım değiştir
           return p.copyWith(
             ideology: p.ideology == PlayerIdeology.reformist 
               ? PlayerIdeology.statist 
@@ -193,6 +201,7 @@ class GameEngine {
       
       return _nextTurn(processedState.copyWith(
         players: updatedPlayers,
+        treasury: processedState.treasury + 2, // 2 coin kara paraya
         lastLog: log + ' - Takım değiştirildi!'
       ));
     }
@@ -212,35 +221,40 @@ class GameEngine {
 
   /// Hamleyi anında uygula (Income, Coup gibi)
   GameState _applyActionImmediate(GameState current, String playerId, GameAction action, String? targetId) {
-    int treasuryChange = 0; // Pozitif = hazineye eklenir, Negatif = hazineden alınır
+    int poolChange = 0; // Para Havuzu değişimi (Pozitif = havuza ekle, Negatif = havuzdan al)
+    int treasuryChange = 0; // Kara Para değişimi (Pozitif = kara paraya ekle)
 
     List<Player> updatedPlayers = current.players.map((p) {
       if (p.id == playerId) {
         if (action == GameAction.income) {
-          treasuryChange -= 1; // Hazineden 1 al
-          return p.copyWith(coins: p.coins + 1);
+          // Havuzdan 1 al (varsa)
+          int amount = current.pool >= 1 ? 1 : current.pool;
+          poolChange -= amount;
+          return p.copyWith(coins: p.coins + amount);
         }
         if (action == GameAction.foreignAid) {
-          treasuryChange -= 2; // Hazineden 2 al
-          return p.copyWith(coins: p.coins + 2);
+          // Havuzdan 2 al (varsa, yoksa kalanı)
+          int amount = current.pool >= 2 ? 2 : current.pool;
+          poolChange -= amount;
+          return p.copyWith(coins: p.coins + amount);
         }
         if (action == GameAction.coup) {
           // Yeterli para kontrolü
-          if (p.coins < 7) return p; // Yeterli para yok, değişiklik yapma
-          treasuryChange += 7; // Hazineye 7 ver
+          if (p.coins < 7) return p; // Yeterli para yok
+          poolChange += 7; // Havuza 7 ver
           return p.copyWith(coins: p.coins - 7);
         }
         if (action == GameAction.convertSelf) {
            // Yeterli para kontrolü
            if (p.coins < 1) return p; // Yeterli para yok
-           treasuryChange += 1; // Hazineye 1 ver
+           treasuryChange += 1; // Kara paraya 1 ver
            return p.copyWith(
              coins: p.coins - 1, 
              ideology: p.ideology == PlayerIdeology.reformist ? PlayerIdeology.statist : PlayerIdeology.reformist
            );
         }
         if (action == GameAction.convertOther) {
-           treasuryChange += 2; // Hazineye 2 ver
+           treasuryChange += 2; // Kara paraya 2 ver
            return p.copyWith(coins: p.coins - 2);
         }
       }
@@ -255,6 +269,7 @@ class GameEngine {
 
     GameState newState = current.copyWith(
        players: updatedPlayers, 
+       pool: current.pool + poolChange,
        treasury: current.treasury + treasuryChange
     );
 
@@ -346,13 +361,16 @@ class GameEngine {
     String initiatorId = state.actionInitiatorId!;
     String? targetId = state.actionTargetId;
     GameAction action = state.currentAction!;
-    int treasuryChange = 0; // Pozitif = hazineye ekle, Negatif = hazineden al
+    int poolChange = 0; // Para Havuzu değişimi
+    int treasuryChange = 0; // Kara Para değişimi
     
     // --- ACTIONS ---
     
     if (action == GameAction.tax) {
-       treasuryChange -= 3; // Hazineden 3 al
-       updatedPlayers = updatedPlayers.map((p) => p.id == initiatorId ? p.copyWith(coins: p.coins + 3) : p).toList();
+       // Havuzdan 3 al (varsa, yoksa kalanı)
+       int amount = state.pool >= 3 ? 3 : state.pool;
+       poolChange -= amount;
+       updatedPlayers = updatedPlayers.map((p) => p.id == initiatorId ? p.copyWith(coins: p.coins + amount) : p).toList();
        
     } else if (action == GameAction.embezzle) {
        // ZİMMET BAŞARILI: Kara Para'dan tüm parayı al
@@ -400,8 +418,10 @@ class GameEngine {
        ));
 
     } else if (action == GameAction.foreignAid) {
-       treasuryChange -= 2; // Hazineden 2 al
-       updatedPlayers = updatedPlayers.map((p) => p.id == initiatorId ? p.copyWith(coins: p.coins + 2) : p).toList();
+       // Havuzdan 2 al (varsa, yoksa kalanı)
+       int amount = state.pool >= 2 ? 2 : state.pool;
+       poolChange -= amount;
+       updatedPlayers = updatedPlayers.map((p) => p.id == initiatorId ? p.copyWith(coins: p.coins + amount) : p).toList();
        
     } else if (action == GameAction.steal && targetId != null) {
        // Hedefin en fazla 2 coini çalınabilir (oyuncular arası transfer, hazine etkilenmez)
@@ -516,8 +536,9 @@ class GameEngine {
     // Normal para kazanma veya çalma işlemleri bitti, sıra diğer oyuncuya
     return _nextTurn(state.copyWith(
       players: updatedPlayers, 
+      pool: state.pool + poolChange,
       treasury: state.treasury + treasuryChange,
-      lastLog: '${action.displayName} başarılı! Hazine: ${state.treasury + treasuryChange}'
+      lastLog: '${action.displayName} başarılı! Havuz: ${state.pool + poolChange}, Kara Para: ${state.treasury + treasuryChange}'
     ));
   }
 
@@ -733,14 +754,8 @@ class GameEngine {
         List<Player> updatedPlayers = List.from(state.players);
         List<String> updatedClaimants = List.from(state.kayyumClaimants);
 
-        // Sadece Action Challenge ise ve Assassinate ise para iade (Rule 6 in User Image)
-        if (isActionChallenge && state.currentAction == GameAction.assassinate) {
-           updatedPlayers = updatedPlayers.map((p) {
-              if (p.id == challengedId) return p.copyWith(coins: p.coins + 3);
-              return p;
-           }).toList();
-           refundAmount = 3;
-        }
+        // Suikast başarısız olunca para GERİ VERİLMEZ (pool'da kalır)
+        // Sadece log için refundAmount kullanılıyor ama para iadesi yok
 
         // Kayyum Challenge: Kaybeden listeden çıkar
         if (state.phase == GamePhase.kayyumBidding && state.currentAction == GameAction.kayyum) {
@@ -758,7 +773,7 @@ class GameEngine {
            actionInitiatorId: isActionChallenge ? null : state.actionInitiatorId,
            actionTargetId: isActionChallenge ? null : state.actionTargetId,
            claimedCharacter: null,
-           lastLog: "${state.players.firstWhere((p)=>p.id==challengedId).name} blöf yaparken yakalandı!${refundAmount >0 ? ' Para iade edildi.' : ''}"
+           lastLog: "${state.players.firstWhere((p)=>p.id==challengedId).name} blöf yaparken yakalandı!"
         );
     }
   }
@@ -879,9 +894,19 @@ class GameEngine {
     newRevealed.add(cardToLose);
     
     bool isNowDead = newCards.isEmpty;
-    int treasuryIncrease = 0; // Normalde 0, eğer ölürse eskiden treasury'e gidiyordu.
+    int poolIncrease = 0; // Para Havuzuna dönecek para
     
-    // ARTIK GİTMİYOR. Avukat (Kayyum) alacak.
+    // Oyuncu öldüyse ve Avukat yoksa, parası havuza döner
+    if (isNowDead) {
+      // Avukat var mı kontrol et
+      bool hasLawyer = current.players.any((p) => 
+        p.cards.contains(Character.avukat) || p.revealedCards.contains(Character.avukat)
+      );
+      
+      if (!hasLawyer) {
+        poolIncrease = victim.coins; // Para havuza döner
+      }
+    }
 
     List<Player> updatedPlayers = current.players.map((p) {
       if (p.id == victimId) {
@@ -889,24 +914,26 @@ class GameEngine {
           cards: newCards,
           revealedCards: newRevealed,
           isAlive: !isNowDead,
+          coins: poolIncrease > 0 ? 0 : p.coins, // Avukat yoksa para sıfırlanır
         );
       }
       return p;
     }).toList();
 
-    // 5. Kasayı güncelle (Değişmedi)
-    int newTreasury = current.treasury + treasuryIncrease;
-
     // 6. Log Mesajı
     String log = "${victim.name} ${cardToLose.displayName} kartını kaybetti.";
     if (isNowDead) {
-      log += " Ve OYUNDAN ELENDİ! Mirası sahipsiz kaldı.";
+      if (poolIncrease > 0) {
+        log += " Ve OYUNDAN ELENDİ! ${victim.coins} altını havuza döndü.";
+      } else {
+        log += " Ve OYUNDAN ELENDİ! Mirası sahipsiz kaldı (Kayyum için).";
+      }
     }
 
     // 7. State'i güncelle
     GameState newState = current.copyWith(
       players: updatedPlayers, 
-      treasury: newTreasury,
+      pool: current.pool + poolIncrease,
       lastLog: log
     );
     
