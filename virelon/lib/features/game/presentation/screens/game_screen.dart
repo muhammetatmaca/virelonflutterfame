@@ -1113,13 +1113,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
                        // DEĞİŞİM (Elçi) - Normal modda her zaman var
                        if (!_isPlusMode) ...[
-                           NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
+                           NeonButton(label: "DEĞİŞİM (2)", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
                            const SizedBox(width: 8),
                        ],
 
                        // Elçi (Sadece Değişim) - Plus modda
                        if (_isPlusMode && _plusModeVariant2 == Character.ambassador) ...[
-                           NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
+                           NeonButton(label: "DEĞİŞİM (2)", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
                            const SizedBox(width: 8),
                        ],
 
@@ -1127,7 +1127,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                        if (_isPlusMode && _plusModeVariant2 == Character.inquisitor) ...[
                            NeonButton(label: "SORGU", icon: Icons.search, baseColor: Colors.orange, onTap: () => _showTargetDialog(context, GameAction.investigate, notifier, gameState.players)),
                            const SizedBox(width: 8),
-                           NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
+                           NeonButton(label: "DEĞİŞİM (1)", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange, claimedCharacterOverride: Character.inquisitor)),
                            const SizedBox(width: 8),
                        ],
 
@@ -2031,7 +2031,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildExchangeUI(GameState state, GameNotifier notifier) {
       final currentPlayer = state.players.firstWhere((p) => p.id == state.currentPlayerId);
       final totalCards = currentPlayer.hand;
-      final targetKeepCount = totalCards.length >= 3 ? totalCards.length - 2 : 1; 
+      
+      // Çekilen kart sayısını bul
+      bool isInquisitor = state.claimedCharacter == Character.inquisitor;
+      int drawnCards = isInquisitor ? 1 : 2;
+      
+      // Orijinal kart sayısı kadar seç
+      int originalHandSize = totalCards.length - drawnCards;
+      final targetKeepCount = originalHandSize;
       
       return Column(
         children: [

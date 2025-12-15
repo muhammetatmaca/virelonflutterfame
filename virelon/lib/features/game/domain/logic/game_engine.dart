@@ -108,7 +108,7 @@ class GameEngine {
   }
 
   /// Oyuncunun hamle beyanı (Action Declaration)
-  GameState declareAction(GameState current, String playerId, GameAction action, {String? targetId}) {
+  GameState declareAction(GameState current, String playerId, GameAction action, {String? targetId, Character? claimedCharacterOverride}) {
     if (current.phase != GamePhase.actionDeclaration) return current;
     if (current.currentPlayerId != playerId) return current;
 
@@ -145,14 +145,17 @@ class GameEngine {
     }
 
     // İddia edilen karakteri belirle (Action için gereken kart)
-    Character? claimedChar;
-    if (action == GameAction.tax) claimedChar = Character.duke;
-    else if (action == GameAction.steal) claimedChar = Character.captain;
-    else if (action == GameAction.assassinate) claimedChar = Character.assassin;
-    else if (action == GameAction.exchange) claimedChar = Character.ambassador;
-    else if (action == GameAction.investigate) claimedChar = Character.inquisitor; // Sadece Engizisyoncu
-    else if (action == GameAction.embezzle) claimedChar = Character.duke; // TERS MANTIK: Duke OLMAMALI
-    // convertOther (BASKI): Karakter iddiası yok, herkes yapabilir
+    // claimedCharacterOverride parametresi varsa onu kullan (Exchange için Ambassador/Inquisitor farkı)
+    Character? claimedChar = claimedCharacterOverride;
+    if (claimedChar == null) {
+      if (action == GameAction.tax) claimedChar = Character.duke;
+      else if (action == GameAction.steal) claimedChar = Character.captain;
+      else if (action == GameAction.assassinate) claimedChar = Character.assassin;
+      else if (action == GameAction.exchange) claimedChar = Character.ambassador; // Default
+      else if (action == GameAction.investigate) claimedChar = Character.inquisitor;
+      else if (action == GameAction.embezzle) claimedChar = Character.duke; // TERS MANTIK: Duke OLMAMALI
+      // convertOther (BASKI): Karakter iddiası yok, herkes yapabilir
+    }
     
     // Kayyum için Avukat iddiası ve listeye ekleme
     List<String> claimants = [];
@@ -442,18 +445,23 @@ class GameEngine {
        // Ancak burada state döndürüyoruz, nextTurn değil!
        return state.copyWith(
          players: updatedPlayers,
-         phase: GamePhase.victimHandover,
+           phase: GamePhase.victimHandover,
          blockerId: targetId, // Hedef kişi (Geçici olarak blockerId kullanıyoruz who-is-victim için)
          lastLog: "${state.players.firstWhere((p)=>p.id==initiatorId).name} başarıyla SUİKAST yaptı!",
        );
        
     } else if (action == GameAction.exchange) {
-       // Elçi: 2 kart çek
+       // Exchange: Ambassador 2 kart, Inquisitor 1 kart çeker
        List<Character> deck = List.from(state.deck);
-       // Deste yeterli değilse (basitlik için şimdilik kart varsa çekiyoruz)
        List<Character> drawnCards = [];
-       if (deck.isNotEmpty) drawnCards.add(deck.removeLast());
-       if (deck.isNotEmpty) drawnCards.add(deck.removeLast());
+       
+       // Ambassador 2 kart, Inquisitor 1 kart çeker
+       bool isInquisitor = state.claimedCharacter == Character.inquisitor;
+       int cardsToDraw = isInquisitor ? 1 : 2;
+       
+       for (int i = 0; i < cardsToDraw && deck.isNotEmpty; i++) {
+         drawnCards.add(deck.removeLast());
+       }
        
        // Oyuncunun eline ekle (Geçici olarak 3 veya 4 karta çıkabilir)
        updatedPlayers = updatedPlayers.map((p) {
@@ -467,8 +475,10 @@ class GameEngine {
        return state.copyWith(
          players: updatedPlayers,
          deck: deck,
-         phase: GamePhase.exchange, // GameEnum'a eklediğimiz yeni faz
-         lastLog: "Elçi kart değişimi yapıyor...",
+         phase: GamePhase.exchange,
+         lastLog: isInquisitor 
+           ? "Engizisyoncu kart değişimi yapıyor (1 kart)..."
+           : "Elçi kart değişimi yapıyor (2 kart)...",
        );
     } else if (action == GameAction.manipulate) {
        // Gazeteci: Elinden + Rakibinden (1) + Desteden (1)
@@ -515,21 +525,26 @@ class GameEngine {
         final targetP = updatedPlayers.firstWhere((p) => p.id == targetId);
         
         if (targetP.hand.isEmpty) {
-           // Hedefin kartı yoksa (ölmüş ama hala oyunda, edge case)
+           // Hedefin kartı yoksa
            return _nextTurn(state.copyWith(players: updatedPlayers, lastLog: "Hedefin kartı yok!"));
         }
         
-        // Rastgele bir kart seç
-        List<Character> targetHand = List.from(targetP.hand);
-        targetHand.shuffle();
-        Character revealedCard = targetHand.first;
+        // Tek kartı varsa otomatik seç
+        if (targetP.hand.length == 1) {
+          return state.copyWith(
+            players: updatedPlayers,
+            phase: GamePhase.investigation,
+            investigatedCard: targetP.hand.first,
+            lastLog: "${state.players.firstWhere((p)=>p.id==initiatorId).name} sorgu yapıyor...",
+          );
+        }
         
-        // Investigation fazına geç
+        // Birden fazla kart varsa hedef seçsin
         return state.copyWith(
            players: updatedPlayers,
-           phase: GamePhase.investigation,
-           investigatedCard: revealedCard,
-           lastLog: "${state.players.firstWhere((p)=>p.id==initiatorId).name} sorgu yapıyor...",
+           phase: GamePhase.investigationCardSelect, // Hedef kart seçecek
+           investigatedCard: null, // Henüz seçilmedi
+           lastLog: "${targetP.name} gösterilecek kartı seçiyor...",
         );
      }
 
@@ -549,10 +564,13 @@ class GameEngine {
     final currentPlayerId = state.currentPlayerId;
     final currentPlayer = state.players.firstWhere((p) => p.id == currentPlayerId);
     
-    // Hedef el sayısı: Şu anki el (çekilen dahil) - 2
-    // Örneğin başta 2 kartı vardı, 2 çekti = 4. Hedef = 2.
-    // Başta 1 kartı vardı, 2 çekti = 3. Hedef = 1.
-    int targetHandSize = currentPlayer.hand.length - 2; 
+    // Çekilen kart sayısını bul
+    bool isInquisitor = state.claimedCharacter == Character.inquisitor;
+    int drawnCards = isInquisitor ? 1 : 2;
+    
+    // Hedef el sayısı: Orijinal kart sayısı (şu anki - çekilen)
+    int originalHandSize = currentPlayer.hand.length - drawnCards;
+    int targetHandSize = originalHandSize; // Orijinal kart sayısı kadar seç
     
     if (targetHandSize < 1) targetHandSize = 1; // Güvenlik
 

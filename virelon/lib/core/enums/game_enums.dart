@@ -81,7 +81,7 @@ extension CharacterX on Character {
       case Character.captain:
         return ['• Para Çal (+2)', '• Hırsızlığı Blokla'];
       case Character.ambassador:
-        return ['• Kart Değiştir (1)', '• Sorgu Yap', '• Hırsızlığı Blokla'];
+        return ['• Kart Değiştir (2)', '• Hırsızlığı Blokla'];
       case Character.inquisitor:
         return ['• Sorgu Yap', '• Kart Değiştir (1)', '• Hırsızlığı Blokla'];
       case Character.avukat:
@@ -101,7 +101,7 @@ extension GameActionX on GameAction {
       case GameAction.tax: return 'Vergi (Dük)';
       case GameAction.assassinate: return 'Suikast (Suikastçı)';
       case GameAction.steal: return 'Çalma (Yüzbaşı)';
-      case GameAction.exchange: return 'Değişim (Elçi)';
+      case GameAction.exchange: return 'Değişim';
       case GameAction.investigate: return 'Sorgu (Engizisyoncu)';
       case GameAction.embezzle: return 'Zimmet (Kara Para)';
       case GameAction.convertSelf: return 'Dönüşüm (Taraf Değiş)';
@@ -124,7 +124,8 @@ enum GamePhase {
   resolution,        // Sonuç ekranı (kim ne kaybetti)
   exchange,          // Kart değişimi yapan oyuncu kart seçecek
   manipulation,      // Gazeteci kart dağıtımı yapacak
-  investigation,     // Engizisyoncu sorgu yapıyor
+  investigationCardSelect, // Hedef kart seçecek (Engizisyoncu sorgusu)
+  investigation,     // Engizisyoncu sorgu yapıyor (kartı gördü)
   kayyumBidding,     // Çoklu Kayyum - Avukatlar ilan ediliyor
   gameOver           // Oyun bitti
 }

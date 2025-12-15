@@ -25,9 +25,9 @@ class GameNotifier extends StateNotifier<GameState> {
     state = _engine.startTurn(state);
   }
 
-  void performAction(GameAction action, {String? targetId}) {
+  void performAction(GameAction action, {String? targetId, Character? claimedCharacterOverride}) {
     if (state.currentPlayerId == null) return;
-    state = _engine.declareAction(state, state.currentPlayerId!, action, targetId: targetId);
+    state = _engine.declareAction(state, state.currentPlayerId!, action, targetId: targetId, claimedCharacterOverride: claimedCharacterOverride);
   }
 
   void passAction() {
@@ -65,6 +65,16 @@ class GameNotifier extends StateNotifier<GameState> {
   
   void finalizeManipulation(List<Character> myNewHand, Character cardToTarget, Character cardToDeck) {
     state = _engine.completeManipulation(state, myNewHand, cardToTarget, cardToDeck);
+  }
+
+  // Hedef, Engizisyoncu'ya göstereceği kartı seçer
+  void selectInvestigationCard(Character selectedCard) {
+    if (state.phase != GamePhase.investigationCardSelect) return;
+    state = state.copyWith(
+      phase: GamePhase.investigation,
+      investigatedCard: selectedCard,
+      lastLog: "Kart seçildi! Engizisyoncu kartı görüyor...",
+    );
   }
 
   void finalizeInvestigation(bool forceExchange) {
