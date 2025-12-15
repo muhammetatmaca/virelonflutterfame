@@ -44,8 +44,10 @@
                    
                    Text(
                      isForeignAid 
-                       ? "Başka bir oyuncu bu hamleyi\\nBloklayabilir (sadece Duke)."
-                       : "Başka bir oyuncu bu hamleye\\nMeydan Okuyabilir veya Bloklayabilir.",
+                       ? "Başka bir oyuncu bu hamleyi\nBloklayabilir (sadece Duke)."
+                       : state.currentAction == GameAction.convertOther
+                         ? "Başka bir oyuncu bu hamleyi\nBloklayabilir (sadece Avukat)."
+                         : "Başka bir oyuncu bu hamleye\nMeydan Okuyabilir veya Bloklayabilir.",
                      textAlign: TextAlign.center,
                      style: TextStyle(color: Colors.white54, fontSize: 12),
                    ),
@@ -67,8 +69,8 @@
                              },
                            ),
                          ),
-                       // MEYDAN OKU (Foreign Aid dışında)
-                       if (!isForeignAid)
+                       // MEYDAN OKU (Foreign Aid ve convertOther dışında)
+                       if (!isForeignAid && state.currentAction != GameAction.convertOther)
                          Expanded(
                            child: NeonButton(
                              label: "İTİRAZ ET!",

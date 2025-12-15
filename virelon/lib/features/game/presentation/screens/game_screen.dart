@@ -35,7 +35,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   int _selectedAvatarIndex = 0;
   
   // Phase States
-  List<Character> _exchangeSelectedCards = [];
+  List<int> _exchangeSelectedIndices = []; // Index bazlı seçim
   List<Character> _manipulationMyHand = [];
   Character? _manipulationTargetCard;
   Character? _manipulationDeckCard;
@@ -919,7 +919,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                              Padding(
                                padding: const EdgeInsets.only(top: 6),
                                child: Container(
-                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                  decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -928,12 +928,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                       ],
                                     ),
                                     border: Border.all(color: currentPlayer.ideology!.color, width: 2),
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: currentPlayer.ideology!.color.withOpacity(0.3),
-                                        blurRadius: 8,
-                                        spreadRadius: 1,
+                                        color: currentPlayer.ideology!.color.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
                                       )
                                     ]
                                  ),
@@ -946,28 +946,28 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                            border: Border.all(color: currentPlayer.ideology!.color, width: 2),
                                            boxShadow: [
                                              BoxShadow(
-                                               color: currentPlayer.ideology!.color.withOpacity(0.5),
-                                               blurRadius: 4,
+                                               color: currentPlayer.ideology!.color.withOpacity(0.6),
+                                               blurRadius: 8,
                                              )
                                            ]
                                          ),
                                          child: ClipOval(
                                            child: Image.asset(
                                              currentPlayer.ideology!.assetPath, 
-                                             width: 24, 
-                                             height: 24, 
+                                             width: 48, 
+                                             height: 48, 
                                              fit: BoxFit.cover
                                            )
                                          ),
                                        ),
-                                       const SizedBox(width: 8),
+                                       const SizedBox(width: 12),
                                        Text(
                                          currentPlayer.ideology!.displayName.toUpperCase(), 
                                          style: TextStyle(
                                            color: currentPlayer.ideology!.color, 
-                                           fontSize: 12, 
+                                           fontSize: 14, 
                                            fontWeight: FontWeight.bold,
-                                           letterSpacing: 1,
+                                           letterSpacing: 1.5,
                                          )
                                        )
                                     ]
@@ -1075,9 +1075,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                          ],
                        ],
 
-                       // Engizisyoncu/Elçi (Sorgu + Değişim)
+                       // DEĞİŞİM (Elçi) - Normal modda her zaman var
+                       if (!_isPlusMode) ...[
+                           NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
+                           const SizedBox(width: 8),
+                       ],
+
+                       // Elçi (Sorgu + Değişim) - Plus modda
                        if (_isPlusMode && _plusModeVariant2 == Character.ambassador) ...[
                            NeonButton(label: "SORGU", icon: Icons.search, baseColor: Colors.indigo, onTap: () => _showTargetDialog(context, GameAction.investigate, notifier, gameState.players)),
+                           const SizedBox(width: 8),
+                           NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
+                           const SizedBox(width: 8),
+                       ],
+
+                       // Engizisyoncu (Sorgu + Değişim)
+                       if (_isPlusMode && _plusModeVariant2 == Character.inquisitor) ...[
+                           NeonButton(label: "SORGU", icon: Icons.search, baseColor: Colors.orange, onTap: () => _showTargetDialog(context, GameAction.investigate, notifier, gameState.players)),
                            const SizedBox(width: 8),
                            NeonButton(label: "DEĞİŞİM", icon: Icons.compare_arrows, baseColor: Colors.green, onTap: () => notifier.performAction(GameAction.exchange)),
                            const SizedBox(width: 8),
@@ -1089,13 +1103,17 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                            const SizedBox(width: 8),
                        ],
                        
-                       // KAYYUM (Avukat) - Eğer ölü ve paralı biri varsa
-                       if (_isPlusMode && gameState.players.any((p) => !p.isAlive && p.coins > 0)) ...[
+                       // KAYYUM (Avukat) - Sadece Avukat seçiliyse
+                       if (_isPlusMode && _plusModeSpecial == Character.avukat) ...[
                           NeonButton(
                               label: "KAYYUM", 
                               icon: Icons.gavel, 
-                              baseColor: Colors.deepPurple, 
-                              onTap: () => _showTargetDialog(context, GameAction.kayyum, notifier, gameState.players)
+                              baseColor: gameState.players.any((p) => !p.isAlive && p.coins > 0) 
+                                  ? Colors.deepPurple 
+                                  : Colors.grey, 
+                              onTap: gameState.players.any((p) => !p.isAlive && p.coins > 0)
+                                  ? () => _showTargetDialog(context, GameAction.kayyum, notifier, gameState.players)
+                                  : () {} // Disabled
                           ),
                           const SizedBox(width: 8),
                        ],
@@ -1574,6 +1592,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                onTap: () => notifier.blockAction(currentUser.id, Character.gazeteci)
              ));
        }
+       // convertOther (BASKI) bloklanamaz!
     }
 
     return Center(
@@ -1692,8 +1711,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                       ),
                                       const SizedBox(height: 12),
                                     ],
-                                    // Meydan okuma (Foreign Aid hariç)
-                                    if (state.currentAction != GameAction.foreignAid)
+                                    // Meydan okuma (Foreign Aid ve convertOther hariç)
+                                    if (state.currentAction != GameAction.foreignAid && state.currentAction != GameAction.convertOther)
                                       NeonButton(
                                         label: "MEYDAN OKU",
                                         icon: Icons.warning,
@@ -1754,8 +1773,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                    if (blockButtons.isNotEmpty) const SizedBox(height: 16),
                    Row(
                      children: [
-                       // Meydan Oku (Foreign Aid hariç)
-                       if (state.currentAction != GameAction.foreignAid)
+                       // Meydan Oku (Foreign Aid ve convertOther hariç)
+                       if (state.currentAction != GameAction.foreignAid && state.currentAction != GameAction.convertOther)
                          Expanded(
                            child: NeonButton(
                              label: "MEYDAN OKU",
@@ -1772,7 +1791,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                              },
                            ),
                          ),
-                       if (state.currentAction != GameAction.foreignAid) const SizedBox(width: 16),
+                       if (state.currentAction != GameAction.foreignAid && state.currentAction != GameAction.convertOther) const SizedBox(width: 16),
                        Expanded(
                          child: NeonButton(
                            label: "İZİN VER",
@@ -1944,24 +1963,25 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   separatorBuilder: (_,__) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                       final card = totalCards[index];
-                      // Basit seçim logic
+                      final isSelected = _exchangeSelectedIndices.contains(index);
+                      
                       return GestureDetector(
                          onTap: () {
                              setState(() {
-                                 if (_exchangeSelectedCards.contains(card)) {
-                                     _exchangeSelectedCards.remove(card); 
+                                 if (isSelected) {
+                                     _exchangeSelectedIndices.remove(index); 
                                  } else {
-                                     if (_exchangeSelectedCards.length < targetKeepCount) {
-                                         _exchangeSelectedCards.add(card);
+                                     if (_exchangeSelectedIndices.length < targetKeepCount) {
+                                         _exchangeSelectedIndices.add(index);
                                      }
                                  }
                              });
                          },
                          child: Opacity(
-                             opacity: _exchangeSelectedCards.contains(card) ? 1.0 : 0.4,
+                             opacity: isSelected ? 1.0 : 0.4,
                              child: Container(
                                 decoration: BoxDecoration(
-                                   border: _exchangeSelectedCards.contains(card) ? Border.all(color: AppTheme.success, width: 3) : null,
+                                   border: isSelected ? Border.all(color: AppTheme.success, width: 3) : null,
                                    borderRadius: BorderRadius.circular(12)
                                 ),
                                 child: GameCardWidget(character: card, width: 90, height: 140)
@@ -1972,10 +1992,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                ),
             ),
             const SizedBox(height: 16),
-            if (_exchangeSelectedCards.length == targetKeepCount)
+            if (_exchangeSelectedIndices.length == targetKeepCount)
                 NeonButton(label: "DEĞİŞİMİ ONAYLA", baseColor: AppTheme.success, onTap: () {
-                    notifier.finalizeExchange(_exchangeSelectedCards);
-                    setState(() => _exchangeSelectedCards = []); // Reset
+                    final selectedCards = _exchangeSelectedIndices.map((i) => totalCards[i]).toList();
+                    notifier.finalizeExchange(selectedCards);
+                    setState(() => _exchangeSelectedIndices = []); // Reset
                 })
         ],
       );

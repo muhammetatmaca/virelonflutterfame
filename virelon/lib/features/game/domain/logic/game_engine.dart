@@ -150,6 +150,7 @@ class GameEngine {
     else if (action == GameAction.exchange) claimedChar = Character.ambassador;
     else if (action == GameAction.investigate) claimedChar = Character.ambassador; // Elçi (Inquisitor mekaniği)
     else if (action == GameAction.embezzle) claimedChar = Character.duke; // TERS MANTIK: Duke OLMAMALI
+    // convertOther (BASKI): Karakter iddiası yok, herkes yapabilir (sadece Avukat blokleyebilir)
     
     // Kayyum için Avukat iddiası ve listeye ekleme
     List<String> claimants = [];
@@ -160,6 +161,7 @@ class GameEngine {
        claimants.add(playerId);
        nextPhase = GamePhase.kayyumBidding; // Çoklu Kayyum için özel faz
     }
+    
     
     // Foreign Aid: Bloklanabilir ama meydan okunamaz
     // actionPending fazına git ama sadece blok için
@@ -173,6 +175,28 @@ class GameEngine {
         lastLog: log + ' (Bloklanabilir)',
       );
     }
+    
+    // convertOther (BASKI): Bloklanamaz, meydan okunamaz - Direkt uygula
+    if (action == GameAction.convertOther) {
+      if (targetId == null) return processedState;
+      
+      final updatedPlayers = processedState.players.map((p) {
+        if (p.id == targetId && p.ideology != null) {
+          return p.copyWith(
+            ideology: p.ideology == PlayerIdeology.reformist 
+              ? PlayerIdeology.statist 
+              : PlayerIdeology.reformist
+          );
+        }
+        return p;
+      }).toList();
+      
+      return _nextTurn(processedState.copyWith(
+        players: updatedPlayers,
+        lastLog: log + ' - Takım değiştirildi!'
+      ));
+    }
+
 
     // Diğerleri meydan okumaya açık
     return processedState.copyWith(
@@ -728,13 +752,12 @@ class GameEngine {
            kayyumClaimants: updatedClaimants,
            phase: GamePhase.victimHandover,
            blockerId: challengedId, // Kurban (Kaybeden) Meydan Okunan Kişi
-           // Not: currentAction null yaparak aksiyonu iptal ediyoruz.
-           // Ama blockerId dolu ise (Block Challenge), action null olmaz, block işlemi iptal olur.
-           // Bu durumda Action SUCCESS olmalı.
-           // Logic: Blocker blöf yaptı -> Block fail -> Action Success.
-           // Bu mantığı 'executeCardLoss' sonrasında kurmalıyız.
-           // Şimdilik action'ı null yapmıyoruz eğer block challenge (isActionChallenge == false) ise.
+           // Action Challenge kaybedildi -> Action iptal
+           // Block Challenge kaybedildi -> Action devam (blocker blöf yaptı)
            currentAction: isActionChallenge ? null : state.currentAction,
+           actionInitiatorId: isActionChallenge ? null : state.actionInitiatorId,
+           actionTargetId: isActionChallenge ? null : state.actionTargetId,
+           claimedCharacter: null,
            lastLog: "${state.players.firstWhere((p)=>p.id==challengedId).name} blöf yaparken yakalandı!${refundAmount >0 ? ' Para iade edildi.' : ''}"
         );
     }
@@ -826,13 +849,12 @@ class GameEngine {
     } else if (action == GameAction.assassinate) {
       // Suikastı Kontes VEYA Avukat engelleyebilir
       isValid = claimCharacter == Character.countess || claimCharacter == Character.avukat;
-    } else if (action == GameAction.convertOther) {
-      // Baskıyı (Suikastçı hamlesi, eski ismi Subay) Avukat engelleyebilir
-      isValid = claimCharacter == Character.avukat;
     } else if (action == GameAction.manipulate) {
       // Gazeteci Manipülasyonu engeller (Karşı Hamle)
       isValid = claimCharacter == Character.gazeteci;
     }
+    // convertOther (BASKI) bloklanamaz!
+
 
     if (!isValid) return state;
 

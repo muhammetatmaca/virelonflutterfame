@@ -38,10 +38,10 @@ class GameCardWidget extends StatelessWidget {
             child: isRevealed ? _buildRevealed() : _buildHidden(),
           ),
           if (showAbilities && isRevealed) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Container(
               width: width,
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: Colors.black26,
                 borderRadius: BorderRadius.circular(8),
@@ -51,13 +51,13 @@ class GameCardWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: character.abilities.map((ability) => 
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: 2),
                     child: Text(
                       ability,
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 9,
-                        height: 1.2,
+                        fontSize: 8,
+                        height: 1.1,
                       ),
                     ),
                   )
