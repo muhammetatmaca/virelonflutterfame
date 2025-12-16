@@ -351,6 +351,9 @@ class GameEngine {
       currentAction: null,
       actionInitiatorId: null,
       actionTargetId: null,
+      challengerId: null,
+      blockerId: null,
+      claimedCharacter: null,
       lastLog: 'Sıra ${updatedPlayers[nextIndex].name} oyuncusunda. Cihazı devret.',
     );
   }
@@ -732,9 +735,13 @@ class GameEngine {
     final challenged = current.players.firstWhere((p) => p.id == challengedId);
     final claimedChar = current.claimedCharacter;
     
+    // Action challenge için blockerId'yi sıfırla, yoksa verifyClaim yanlış hesaplar
+    final bool isActionChallenge = current.phase == GamePhase.actionPending;
+    
     return current.copyWith(
       phase: GamePhase.challengeVerification,
       challengerId: challengerId,
+      blockerId: isActionChallenge ? null : current.blockerId, // Action challenge'da blockerId null olmalı
       lastLog: "${challenger.name}, ${challenged.name}'e MEYDAN OKUYOR! ${claimedChar?.displayName} kartını göster!"
     );
   }
@@ -810,7 +817,7 @@ class GameEngine {
            players: updatedPlayers,
            deck: updatedDeck,
            phase: GamePhase.victimHandover,
-           blockerId: challengerId, // Kaybeden (Kurban) artık Challenger
+           actionTargetId: challengerId, // Kaybeden (Kurban) artık Challenger - actionTargetId kullan, blockerId değil!
            lastLog: "${challengedPlayer.name} kartını ispatladı! ${state.players.firstWhere((p)=>p.id==challengerId).name} kart kaybedecek."
         );
 
@@ -1070,6 +1077,7 @@ class GameEngine {
           actionInitiatorId: null,
           actionTargetId: null,
           blockerId: null,
+          challengerId: null,
           claimedCharacter: null
         ));
       }
@@ -1077,6 +1085,7 @@ class GameEngine {
       // Foreign Aid, Tax, Steal: resolveSuccess'te uygulanıyor, çağrılmalı
       return resolveSuccess(newState.copyWith(
         blockerId: null,
+        challengerId: null,
         phase: GamePhase.actionPending
       ));
     }
@@ -1088,15 +1097,31 @@ class GameEngine {
         actionInitiatorId: null,
         actionTargetId: null,
         blockerId: null,
+        challengerId: null,
         claimedCharacter: null
       ));
     }
     
-    // 8b. ZİMMET için: Challenger kaybettiyse (zimmet yapan kazandı), hamleyi uygula
+    // 8b. ACTION CHALLENGE: Challenger kaybettiyse (action yapan kazandı), hamleyi uygula
+    // victimId != actionInitiatorId demek challenger kaybetti
+    bool isChallengerLost = victimId != current.actionInitiatorId && current.challengerId != null;
+    if (isChallengerLost && current.currentAction != null) {
+      // Özel durumlar hariç (embezzle ayrı handle ediliyor)
+      if (current.currentAction != GameAction.embezzle && current.currentAction != GameAction.kayyum) {
+        return resolveSuccess(newState.copyWith(
+          blockerId: null,
+          challengerId: null,
+          phase: GamePhase.actionPending
+        ));
+      }
+    }
+    
+    // 8c. ZİMMET için: Challenger kaybettiyse (zimmet yapan kazandı), hamleyi uygula
     if (current.currentAction == GameAction.embezzle && victimId != current.actionInitiatorId) {
       // Challenger kaybetti, zimmet başarılı
       return resolveSuccess(newState.copyWith(
         blockerId: null,
+        challengerId: null,
         phase: GamePhase.actionPending
       ));
     }
@@ -1106,6 +1131,7 @@ class GameEngine {
       return newState.copyWith(
         phase: GamePhase.kayyumBidding,
         blockerId: null,
+        challengerId: null,
         lastLog: log + " Kayyum ilanı devam ediyor..."
       );
     }

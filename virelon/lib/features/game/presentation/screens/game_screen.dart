@@ -1233,7 +1233,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // --- Challenge Verification UI (Kart Gösterme Ekranı) ---
   Widget _buildChallengeVerificationUI(GameState state, GameNotifier notifier) {
-    final challengedId = state.blockerId ?? state.actionInitiatorId;
+    // Action challenge için blockerId null olmalı, block challenge için blockerId dolu
+    final bool isActionChallenge = state.blockerId == null;
+    final challengedId = isActionChallenge ? state.actionInitiatorId : state.blockerId;
     if (challengedId == null) return const SizedBox.shrink();
     
     final challenged = state.players.firstWhere((p) => p.id == challengedId);
@@ -1263,6 +1265,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
                 
                 const SizedBox(height: 12),
+                
+                // DEBUG bilgisi
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.black54,
+                  child: Text(
+                    "",
+                    style: const TextStyle(color: Colors.yellow, fontSize: 10),
+                  ),
+                ),
+                
+                const SizedBox(height: 8),
                 
                 Text(
                   isEmbezzle 
@@ -1811,7 +1825,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                         baseColor: AppTheme.danger,
                                         onTap: () {
                                           Navigator.pop(context);
-                                          notifier.performChallenge(initiator.id);
+                                          notifier.performChallenge(player.id);
                                         },
                                       ),
                                   ],
@@ -1873,7 +1887,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                              icon: Icons.warning,
                              baseColor: AppTheme.danger,
                              onTap: () {
-                               notifier.performChallenge(initiator.id);
+                               notifier.performChallenge(currentUser.id);
                                ScaffoldMessenger.of(context).showSnackBar(
                                  SnackBar(
                                    backgroundColor: AppTheme.danger,
@@ -1905,7 +1919,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Resolution (Lose Card) UI ---
   Widget _buildResolutionUI(GameState state, GameNotifier notifier) {
-    final victimId = state.blockerId; 
+    final victimId = state.actionTargetId; // Challenge'da victim = actionTargetId
     if (victimId == null) return const Center(child: Text("Hata: Kurban bulunamadı"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first); 
@@ -1968,9 +1982,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       ),
     );
   }
-  // --- Victim Handover UI ---
+  // --- Victim Handover UI (Telefonu kurbana ver) ---
   Widget _buildVictimHandoverUI(GameState state, GameNotifier notifier) {
-    final victimId = state.blockerId;
+    final victimId = state.actionTargetId; // Challenge'da victim = actionTargetId
     if (victimId == null) return const Center(child: Text("Hata: Kurban ID yok"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first);
@@ -1982,7 +1996,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-             Icon(isCoup ? Icons.flash_on : Icons.gavel, size: 80, color: AppTheme.danger)
+             Icon(Icons.phone_android, size: 80, color: AppTheme.danger)
                  .animate(onPlay: (c) => c.repeat(reverse: true))
                  .scale(begin: const Offset(1,1), end: const Offset(1.1, 1.1), duration: 1.seconds),
              
@@ -1997,22 +2011,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                    Text(isCoup ? "SALDIRI GERÇEKLEŞTİ!" : "MEYDAN OKUMA SONUCU:", style: AppTheme.chip.copyWith(color: Colors.white70)),
                    const SizedBox(height: 16),
                    Text(
-                     isCoup ? "SALDIRIYA UĞRADIN!" : "BİRİSİ YANILDI!",
-                     style: AppTheme.headline.copyWith(color: AppTheme.danger, fontSize: 32),
+                     "BİRİ KART KAYBEDECEK!",
+                     style: AppTheme.headline.copyWith(color: AppTheme.danger, fontSize: 28),
                      textAlign: TextAlign.center,
                    ),
-                   const SizedBox(height: 32),
+                   const SizedBox(height: 24),
                    
                    Text(
-                     "Telefonu FEDA ETMEK İÇİN\n${victim.name.toUpperCase()} adlı oyuncuya verin.",
+                     "Telefonu\n${victim.name.toUpperCase()}\nadlı oyuncuya verin.",
                      textAlign: TextAlign.center,
-                     style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                    ),
                    
                    const SizedBox(height: 16),
-                   const Text(
-                    "Kart seçimi yapılacak.",
-                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                   Text(
+                    state.lastLog,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                    ),
 
                    const SizedBox(height: 32),
