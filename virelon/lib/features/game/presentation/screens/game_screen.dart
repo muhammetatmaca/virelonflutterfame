@@ -50,6 +50,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   String? _sessionId; // Bu oyun oturumu için benzersiz ID
   int? _myPlayerIndex; // Oyuncu numarası (0, 1, 2, 3...)
   
+  // Online Response Timer
+  Timer? _responseTimer;
+  int _responseCountdown = 10; // 10 saniye geri sayım
+  bool _canPassAction = false; // Timer bitene kadar false
+  bool _hasResponded = false; // Bu oyuncu karar verdi mi?
+  
   // Phase States
   List<int> _exchangeSelectedIndices = []; // Index bazlı seçim
   List<Character> _manipulationMyHand = [];
@@ -120,12 +126,41 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
   }
 
+  void _startResponseTimer() {
+    _responseTimer?.cancel();
+    _responseCountdown = 10;
+    _canPassAction = false;
+    _hasResponded = false; // Yeni tur, yeni karar
+    
+    _responseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _responseCountdown--;
+          if (_responseCountdown <= 0) {
+            _canPassAction = true;
+            timer.cancel();
+          }
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _stopResponseTimer() {
+    _responseTimer?.cancel();
+    _responseTimer = null;
+    _responseCountdown = 10;
+    _canPassAction = false;
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _roomCodeController.dispose();
     _playerListScrollController.dispose();
     _gameStateSubscription?.cancel();
+    _responseTimer?.cancel();
     _bannerAd?.dispose();
     _rewardedAd?.dispose();
     _appOpenAd?.dispose();
@@ -2314,17 +2349,64 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                    
                    // Online modda: Sadece bekle, oyuncuları gösterme
                    if (_gameStarted && _currentRoomId != null) ...[
-                     const CircularProgressIndicator(color: AppTheme.accent),
-                     const SizedBox(height: 16),
-                     const Text("Diğer oyuncuların kararı bekleniyor...", 
-                         style: TextStyle(color: Colors.white54)),
+                     // Timer başlat (ilk kez)
+                     Builder(builder: (context) {
+                       if (_responseTimer == null || !_responseTimer!.isActive) {
+                         WidgetsBinding.instance.addPostFrameCallback((_) {
+                           if (mounted && _responseTimer == null) {
+                             _startResponseTimer();
+                           }
+                         });
+                       }
+                       return const SizedBox.shrink();
+                     }),
+                     
+                     // Geri sayım göster
+                     if (_responseCountdown > 0) ...[
+                       Stack(
+                         alignment: Alignment.center,
+                         children: [
+                           SizedBox(
+                             width: 80,
+                             height: 80,
+                             child: CircularProgressIndicator(
+                               value: _responseCountdown / 10,
+                               strokeWidth: 6,
+                               color: _responseCountdown > 3 ? AppTheme.accent : AppTheme.danger,
+                               backgroundColor: Colors.white12,
+                             ),
+                           ),
+                           Text(
+                             "$_responseCountdown",
+                             style: TextStyle(
+                               color: _responseCountdown > 3 ? Colors.white : AppTheme.danger,
+                               fontSize: 28,
+                               fontWeight: FontWeight.bold,
+                             ),
+                           ),
+                         ],
+                       ),
+                       const SizedBox(height: 16),
+                       const Text("Diğer oyuncuların kararı bekleniyor...", 
+                           style: TextStyle(color: Colors.white54)),
+                     ] else ...[
+                       const Icon(Icons.check_circle, size: 60, color: AppTheme.success),
+                       const SizedBox(height: 16),
+                       const Text("Süre doldu!", style: TextStyle(color: AppTheme.success)),
+                     ],
+                     
                      const SizedBox(height: 24),
                      NeonButton(
-                       label: "KİMSE İTİRAZ ETMİYOR",
+                       label: _canPassAction ? "KİMSE İTİRAZ ETMİYOR" : "BEKLE (${_responseCountdown}s)",
                        icon: Icons.check_circle,
-                       baseColor: AppTheme.success,
+                       baseColor: _canPassAction ? AppTheme.success : Colors.grey,
                        isLarge: true,
-                       onTap: () => notifier.passAction(),
+                       onTap: () {
+                         if (_canPassAction) {
+                           _stopResponseTimer();
+                           notifier.passAction();
+                         }
+                       },
                      ),
                    ]
                    // Pass & Play modda: Oyuncu listesi
@@ -2425,6 +2507,37 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                    const SizedBox(height: 8),
                    const Text("Bu hamleye nasıl tepki vermek istersin?", 
                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                   
+                   // Online modda timer göster
+                   if (_gameStarted && _currentRoomId != null) ...[
+                     const SizedBox(height: 16),
+                     // Timer başlat
+                     Builder(builder: (context) {
+                       if (_responseTimer == null || !_responseTimer!.isActive) {
+                         WidgetsBinding.instance.addPostFrameCallback((_) {
+                           if (mounted && _responseTimer == null) {
+                             _startResponseTimer();
+                           }
+                         });
+                       }
+                       return const SizedBox.shrink();
+                     }),
+                     Row(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: [
+                         Icon(Icons.timer, color: _responseCountdown > 3 ? AppTheme.accent : AppTheme.danger, size: 20),
+                         const SizedBox(width: 8),
+                         Text(
+                           "Kalan süre: ${_responseCountdown}s",
+                           style: TextStyle(
+                             color: _responseCountdown > 3 ? Colors.white70 : AppTheme.danger,
+                             fontWeight: FontWeight.bold,
+                           ),
+                         ),
+                       ],
+                     ),
+                   ],
+                   
                    const SizedBox(height: 24),
                    ...blockButtons,
                    if (blockButtons.isNotEmpty) const SizedBox(height: 16),
@@ -2450,14 +2563,46 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                          ),
                        if (state.currentAction != GameAction.foreignAid && state.currentAction != GameAction.convertOther) const SizedBox(width: 16),
                        Expanded(
-                         child: NeonButton(
-                           label: "İZİN VER",
-                           icon: Icons.check_circle,
-                           baseColor: AppTheme.success,
-                           onTap: () {
-                             notifier.passAction(); 
-                           },
-                         ),
+                         child: _hasResponded 
+                           ? Container(
+                               padding: const EdgeInsets.symmetric(vertical: 16),
+                               decoration: BoxDecoration(
+                                 color: Colors.green.withOpacity(0.2),
+                                 borderRadius: BorderRadius.circular(12),
+                                 border: Border.all(color: Colors.green),
+                               ),
+                               child: const Center(
+                                 child: Row(
+                                   mainAxisAlignment: MainAxisAlignment.center,
+                                   children: [
+                                     Icon(Icons.check, color: Colors.green),
+                                     SizedBox(width: 8),
+                                     Text("İZİN VERDİM", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                   ],
+                                 ),
+                               ),
+                             )
+                           : NeonButton(
+                               label: "İZİN VER",
+                               icon: Icons.check_circle,
+                               baseColor: AppTheme.success,
+                               onTap: () {
+                                 if (_gameStarted && _currentRoomId != null) {
+                                   // Online modda: Sadece kararımı kaydet, oyunu ilerletme
+                                   setState(() => _hasResponded = true);
+                                   ScaffoldMessenger.of(context).showSnackBar(
+                                     const SnackBar(
+                                       backgroundColor: Colors.green,
+                                       content: Text("Kararınız kaydedildi. Diğer oyuncular bekleniyor..."),
+                                       duration: Duration(seconds: 2),
+                                     ),
+                                   );
+                                 } else {
+                                   // Pass & Play modda: Normal davran
+                                   notifier.passAction(); 
+                                 }
+                               },
+                             ),
                        ),
                      ],
                    )
