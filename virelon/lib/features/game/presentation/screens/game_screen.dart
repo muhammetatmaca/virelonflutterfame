@@ -2189,18 +2189,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     if (state.actionInitiatorId == null) return const SizedBox.shrink();
 
     final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId);
-    // UI'ı gösteren kişinin ID'si (Genelde sıradaki oyuncu ama burada tepki veren kişi olmalı)
-    // Şimdilik currentPlayer'ı alıyoruz ama logic olarak hatalı olabilir Pass&Play'de.
-    // Ancak Single Device olduğu için ekranı o an elinde tutan kişi "Current" kabul edilir.
-    // VE bloklama hakkı sadece ilgili kişiye gösterilmeli.
-    final currentUser = state.players.firstWhere((p) => p.id == ref.read(gameStateProvider).currentPlayerId); // Aslında bu state.currentPlayerId değil, cihazın sahibi.
     
-    // Doğru mantık: PassAndPlay'de actionPending ekranı geldiğinde cihazı hedef kişiye vermeli mi?
-    // Veya herkes sırayla bakmalı mı?
-    // Basitlik için: Hedef kişi kimse (actionTargetId) butonları o görür. Diğerleri sadece "Bekleyin" görür.
-    // VEYA: Herkes her şeyi görür (Açık Masa).
+    // Online modda: Ekrandaki kullanıcı _myPlayerId ile belirlenir
+    // Pass & Play modda: Sıradaki oyuncu
+    final currentUser = getCurrentPlayer(state);
     
-    final isTarget = state.actionTargetId == currentUser.id; // Hedef oyuncu mu? (Steal/Assassinate için)
+    // Hedef oyuncu mu? (Steal/Assassinate için)
+    final isTarget = state.actionTargetId == currentUser.id;
 
     List<Widget> blockButtons = [];
     
@@ -2317,9 +2312,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                        style: TextStyle(color: Colors.white70)),
                    const SizedBox(height: 24),
                    
-                   // Oyuncu listesi
-                   Text("Oyuncular:", style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12)),
-                   const SizedBox(height: 12),
+                   // Online modda: Sadece bekle, oyuncuları gösterme
+                   if (_gameStarted && _currentRoomId != null) ...[
+                     const CircularProgressIndicator(color: AppTheme.accent),
+                     const SizedBox(height: 16),
+                     const Text("Diğer oyuncuların kararı bekleniyor...", 
+                         style: TextStyle(color: Colors.white54)),
+                     const SizedBox(height: 24),
+                     NeonButton(
+                       label: "KİMSE İTİRAZ ETMİYOR",
+                       icon: Icons.check_circle,
+                       baseColor: AppTheme.success,
+                       isLarge: true,
+                       onTap: () => notifier.passAction(),
+                     ),
+                   ]
+                   // Pass & Play modda: Oyuncu listesi
+                   else ...[
+                     // Oyuncu listesi
+                     Text("Oyuncular:", style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12)),
+                     const SizedBox(height: 12),
                    ...state.players.where((p) => p.id != initiator.id && p.isAlive).map((player) {
                      return Padding(
                        padding: const EdgeInsets.only(bottom: 8),
@@ -2402,6 +2414,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                      isLarge: true,
                      onTap: () => notifier.passAction(),
                    ),
+                   ], // Pass & Play bloğu kapanışı
                  ],
                )
              else 
