@@ -894,11 +894,11 @@ class GameEngine {
            kayyumClaimants: updatedClaimants,
            phase: GamePhase.victimHandover,
            blockerId: challengedId, // Kurban (Kaybeden) Meydan Okunan Kişi
-           // Action Challenge kaybedildi -> Action iptal
-           // Block Challenge kaybedildi -> Action devam (blocker blöf yaptı)
-           currentAction: isActionChallenge ? null : state.currentAction,
-           actionInitiatorId: isActionChallenge ? null : state.actionInitiatorId,
-           actionTargetId: isActionChallenge ? null : state.actionTargetId,
+           // Action Challenge kaybedildi -> Action iptal (KAYYUM HARİÇ)
+           // Kayyum iptal olmaz, sadece o kişi listeden çıkar (zaten çıkarıldı)
+           currentAction: (isActionChallenge && state.currentAction != GameAction.kayyum) ? null : state.currentAction,
+           actionInitiatorId: (isActionChallenge && state.currentAction != GameAction.kayyum) ? null : state.actionInitiatorId,
+           actionTargetId: (isActionChallenge && state.currentAction != GameAction.kayyum) ? null : state.actionTargetId,
            claimedCharacter: null,
            lastLog: "${state.players.firstWhere((p)=>p.id==challengedId).name} blöf yaparken yakalandı!"
         );
@@ -1120,14 +1120,13 @@ class GameEngine {
         return resolveSuccess(newState.copyWith(
           blockerId: null,
           challengerId: null,
-          phase: GamePhase.actionPending
-        ));
-      }
-    }
-    
-    // 8c. ZİMMET için: Challenger kaybettiyse (zimmet yapan kazandı), hamleyi uygula
-    if (current.currentAction == GameAction.embezzle && victimId != current.actionInitiatorId) {
-      // Challenger kaybetti, zimmet başarılı
+    // 8b. ACTION CHALLENGE: Challenger kaybettiyse (action initiator kazandı), hamleyi uygula
+    // KAYYUM HARİÇ (Kayyum için bidding ekranına dönmeli, otomatik success yok)
+    if (current.currentAction != null && 
+        current.currentAction != GameAction.kayyum &&
+        victimId != current.actionInitiatorId && 
+        victimId == current.challengerId) {
+      // Challenger kaybetti, action başarılı - hamleyi uygula
       return resolveSuccess(newState.copyWith(
         blockerId: null,
         challengerId: null,
@@ -1135,12 +1134,15 @@ class GameEngine {
       ));
     }
 
-    // 9. Kayyum bidding sırasında challenge kaybedildiyse, bidding'e geri dön
-    if (current.currentAction == GameAction.kayyum && current.phase == GamePhase.victimHandover) {
+    // 9. Kayyum bidding sırasında challenge (kim kaybederse kaybetsin) olduysa, bidding'e geri dön
+    // Böylece kalanlar paylaşımı yapabilir
+    if (current.currentAction == GameAction.kayyum) {
       return newState.copyWith(
         phase: GamePhase.kayyumBidding,
         blockerId: null,
         challengerId: null,
+        // challengedPlayerId'yi temizle
+        challengedPlayerId: null,
         lastLog: log + " Kayyum ilanı devam ediyor..."
       );
     }
