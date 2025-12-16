@@ -58,4 +58,41 @@ class Player extends Equatable {
 
   @override
   List<Object?> get props => [id, name, avatar, cards, revealedCards, coins, ideology, isAlive, isTurn, wins];
+
+  // Firebase Serialization
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'avatar': avatar,
+      'cards': cards.map((c) => c.name).toList(),
+      'revealedCards': revealedCards.map((c) => c.name).toList(),
+      'coins': coins,
+      'ideology': ideology?.name,
+      'isAlive': isAlive,
+      'isTurn': isTurn,
+      'wins': wins,
+    };
+  }
+
+  factory Player.fromMap(Map<String, dynamic> map) {
+    return Player(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      avatar: map['avatar'] ?? 'duke',
+      cards: (map['cards'] as List? ?? [])
+          .map((x) => Character.values.firstWhere((e) => e.name == x, orElse: () => Character.duke))
+          .toList(),
+      revealedCards: (map['revealedCards'] as List? ?? [])
+          .map((x) => Character.values.firstWhere((e) => e.name == x, orElse: () => Character.duke))
+          .toList(),
+      coins: map['coins']?.toInt() ?? 2,
+      ideology: map['ideology'] != null
+          ? PlayerIdeology.values.firstWhere((e) => e.name == map['ideology'], orElse: () => PlayerIdeology.reformist)
+          : null,
+      isAlive: map['isAlive'] ?? true,
+      isTurn: map['isTurn'] ?? false,
+      wins: map['wins']?.toInt() ?? 0,
+    );
+  }
 }

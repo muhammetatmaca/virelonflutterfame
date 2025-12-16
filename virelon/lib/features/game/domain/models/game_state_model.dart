@@ -117,4 +117,65 @@ class GameState extends Equatable {
         manipulationCards,
         investigatedCard
       ];
+
+  // Firebase Serialization
+  Map<String, dynamic> toMap() {
+    return {
+      'players': players.map((p) => p.toMap()).toList(),
+      'deck': deck.map((c) => c.name).toList(),
+      'pool': pool,
+      'treasury': treasury,
+      'currentPlayerId': currentPlayerId,
+      'phase': phase.name,
+      'currentAction': currentAction?.name,
+      'actionInitiatorId': actionInitiatorId,
+      'actionTargetId': actionTargetId,
+      'blockerId': blockerId,
+      'claimedCharacter': claimedCharacter?.name,
+      'challengerId': challengerId,
+      'challengedPlayerId': challengedPlayerId,
+      'lastLog': lastLog,
+      'rolesSeenBy': rolesSeenBy,
+      'kayyumClaimants': kayyumClaimants,
+      'kayyumSeenBy': kayyumSeenBy,
+      'manipulationCards': manipulationCards.map((c) => c.name).toList(),
+      'investigatedCard': investigatedCard?.name,
+    };
+  }
+
+  factory GameState.fromMap(Map<String, dynamic> map) {
+    return GameState(
+      players: (map['players'] as List? ?? [])
+          .map((x) => Player.fromMap(x as Map<String, dynamic>))
+          .toList(),
+      deck: (map['deck'] as List? ?? [])
+          .map((x) => Character.values.firstWhere((e) => e.name == x, orElse: () => Character.duke))
+          .toList(),
+      pool: map['pool']?.toInt() ?? 50,
+      treasury: map['treasury']?.toInt() ?? 0,
+      currentPlayerId: map['currentPlayerId'],
+      phase: GamePhase.values.firstWhere((e) => e.name == map['phase'], orElse: () => GamePhase.setup),
+      currentAction: map['currentAction'] != null
+          ? GameAction.values.firstWhere((e) => e.name == map['currentAction'], orElse: () => GameAction.income)
+          : null,
+      actionInitiatorId: map['actionInitiatorId'],
+      actionTargetId: map['actionTargetId'],
+      blockerId: map['blockerId'],
+      claimedCharacter: map['claimedCharacter'] != null
+          ? Character.values.firstWhere((e) => e.name == map['claimedCharacter'], orElse: () => Character.duke)
+          : null,
+      challengerId: map['challengerId'],
+      challengedPlayerId: map['challengedPlayerId'],
+      lastLog: map['lastLog'] ?? '',
+      rolesSeenBy: List<String>.from(map['rolesSeenBy'] ?? []),
+      kayyumClaimants: List<String>.from(map['kayyumClaimants'] ?? []),
+      kayyumSeenBy: List<String>.from(map['kayyumSeenBy'] ?? []),
+      manipulationCards: (map['manipulationCards'] as List? ?? [])
+          .map((x) => Character.values.firstWhere((e) => e.name == x, orElse: () => Character.duke))
+          .toList(),
+      investigatedCard: map['investigatedCard'] != null
+          ? Character.values.firstWhere((e) => e.name == map['investigatedCard'], orElse: () => Character.duke)
+          : null,
+    );
+  }
 }

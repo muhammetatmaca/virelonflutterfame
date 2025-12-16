@@ -1112,26 +1112,15 @@ class GameEngine {
     }
     
     // 8b. ACTION CHALLENGE: Challenger kaybettiyse (action yapan kazandı), hamleyi uygula
-    // victimId != actionInitiatorId demek challenger kaybetti
     bool isChallengerLost = victimId != current.actionInitiatorId && current.challengerId != null;
     if (isChallengerLost && current.currentAction != null) {
-      // Özel durumlar hariç (embezzle ayrı handle ediliyor)
+      // Özel durumlar hariç (embezzle ve kayyum ayrı handle ediliyor)
       if (current.currentAction != GameAction.embezzle && current.currentAction != GameAction.kayyum) {
         return resolveSuccess(newState.copyWith(
           blockerId: null,
           challengerId: null,
-    // 8b. ACTION CHALLENGE: Challenger kaybettiyse (action initiator kazandı), hamleyi uygula
-    // KAYYUM HARİÇ (Kayyum için bidding ekranına dönmeli, otomatik success yok)
-    if (current.currentAction != null && 
-        current.currentAction != GameAction.kayyum &&
-        victimId != current.actionInitiatorId && 
-        victimId == current.challengerId) {
-      // Challenger kaybetti, action başarılı - hamleyi uygula
-      return resolveSuccess(newState.copyWith(
-        blockerId: null,
-        challengerId: null,
-        phase: GamePhase.actionPending
-      ));
+        ));
+      }
     }
 
     // 9. Kayyum bidding sırasında challenge (kim kaybederse kaybetsin) olduysa, bidding'e geri dön

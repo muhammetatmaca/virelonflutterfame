@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "952824095296",
+    "project_id": "virelon-game",
+    "storage_bucket": "virelon-game.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:952824095296:android:326ab655f87fe20ec1f5a5",
+        "android_client_info": {
+          "package_name": "com.example.virelon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNQLGZlgoah4nVQrMQVAlvPTajPNyT-MY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

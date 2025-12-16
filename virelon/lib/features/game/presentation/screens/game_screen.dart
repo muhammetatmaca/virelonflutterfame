@@ -12,6 +12,7 @@ import '../widgets/game_card.dart';
 import '../widgets/reference_sheet.dart';
 import '../widgets/coin_display.dart';
 import 'package:virelon/features/game/domain/models/player_model.dart';
+import '../../data/services/lobby_service.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({Key? key}) : super(key: key);
@@ -31,8 +32,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // Setup State
   final List<Player> _setupPlayers = [];
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _roomCodeController = TextEditingController();
   final ScrollController _playerListScrollController = ScrollController();
   int _selectedAvatarIndex = 0;
+  
+  // Online State
+  bool _isOnlineMode = false;
+  String? _currentRoomId;
+  bool _isJoining = false; // Çift tıklama önleme
   
   // Phase States
   List<int> _exchangeSelectedIndices = []; // Index bazlı seçim
@@ -324,9 +331,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         // Use SingleChildScrollView to avoid keyboard overflow on setup
         Center(
           child: SingleChildScrollView(
-            child: _isSetupMode 
-              ? _buildPassAndPlaySetup(notifier)
-              : _buildMainMenu(),
+            child: _isOnlineMode
+                ? _buildOnlineSetup(notifier)
+                : (_isSetupMode 
+                    ? _buildPassAndPlaySetup(notifier)
+                    : _buildMainMenu()),
           ),
         ),
       ],
@@ -362,18 +371,280 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             label: "OYUN OLUŞTUR",
             icon: Icons.add_circle_outline,
             baseColor: Colors.deepPurple,
-            onTap: () { /* TODO Online */ },
+            onTap: () {
+              setState(() => _isOnlineMode = true);
+            },
           ),
            const SizedBox(height: 12),
           NeonButton(
             label: "OYUNA KATIL",
             icon: Icons.login,
             baseColor: Colors.blueGrey,
-            onTap: () { /* TODO Online */ },
+            onTap: () {
+              setState(() => _isOnlineMode = true);
+            },
           ),
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.2);
+  }
+
+  // === ONLINE MULTIPLAYER ===
+  
+  Widget _buildOnlineSetup(GameNotifier notifier) {
+    if (_currentRoomId != null) {
+      return StreamBuilder<GameState?>(
+        stream: LobbyService().listenToGame(_currentRoomId!),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final gameState = snapshot.data!;
+          final isHost = gameState.players.isNotEmpty && gameState.players.first.id == gameState.currentPlayerId;
+
+          return GlassContainer(
+            width: 360,
+            padding: const EdgeInsets.all(24),
+            isGlowing: true,
+            borderColor: Colors.greenAccent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.wifi, size: 40, color: Colors.greenAccent),
+                const SizedBox(height: 16),
+                const Text("LOBİDE BEKLENİYOR", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)),
+                  child: SelectableText(
+                    _currentRoomId!,
+                    style: const TextStyle(color: Colors.greenAccent, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text("Bu kodu arkadaşlarınla paylaş!", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                const SizedBox(height: 24),
+                Text("OYUNCULAR (${gameState.players.length}/8)", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 12),
+                Container(
+                  height: 150,
+                  decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12)),
+                  child: ListView.builder(
+                    itemCount: gameState.players.length,
+                    itemBuilder: (context, index) {
+                      final p = gameState.players[index];
+                      return ListTile(
+                        leading: CircleAvatar(backgroundColor: Colors.blueGrey, child: Text(p.name[0])),
+                        title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                        trailing: index == 0 ? const Icon(Icons.star, color: Colors.amber, size: 16) : null,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
+                if (isHost && gameState.players.length >= 3) ...[
+                  NeonButton(
+                    label: "OYUNU BAŞLAT",
+                    icon: Icons.play_arrow,
+                    baseColor: Colors.green,
+                    isLarge: true,
+                    onTap: () => _startOnlineGame(notifier, gameState),
+                  ),
+                ] else if (isHost) ...[
+                  Text(
+                    "En az 3 oyuncu gerekiyor... (${gameState.players.length}/3)",
+                    style: const TextStyle(color: Colors.white38),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+                  label: const Text("LOBİDEN AYRIL", style: TextStyle(color: Colors.redAccent)),
+                  onPressed: () {
+                    setState(() {
+                      _currentRoomId = null;
+                      _isOnlineMode = false;
+                    });
+                  },
+                )
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    return GlassContainer(
+      width: 340,
+      padding: const EdgeInsets.all(24),
+      isGlowing: true,
+      borderColor: Colors.cyan,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => setState(() => _isOnlineMode = false),
+              ),
+              const Text("ONLINE LOBİ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _nameController,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: "OYUNCU ADI",
+              hintText: "İsmini gir...",
+              hintStyle: const TextStyle(color: Colors.white30),
+              labelStyle: const TextStyle(color: Colors.white54),
+              filled: true,
+              fillColor: Colors.white10,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.person, color: Colors.cyan),
+            ),
+          ),
+          const SizedBox(height: 32),
+          _isJoining
+              ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
+              : NeonButton(
+                  label: "YENİ ODA OLUŞTUR",
+                  icon: Icons.add_circle,
+                  baseColor: Colors.cyan,
+                  onTap: () => _createOnlineRoom(notifier),
+                ),
+          const SizedBox(height: 24),
+          const Divider(color: Colors.white24),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _roomCodeController,
+            style: const TextStyle(color: Colors.white, letterSpacing: 3, fontWeight: FontWeight.bold),
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              labelText: "ODA KODU",
+              hintText: "6 haneli kod",
+              hintStyle: const TextStyle(color: Colors.white30, letterSpacing: 0),
+              labelStyle: const TextStyle(color: Colors.white54, letterSpacing: 0),
+              filled: true,
+              fillColor: Colors.white10,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.vpn_key, color: Colors.orange),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _isJoining
+              ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+              : NeonButton(
+                  label: "KOD İLE KATIL",
+                  icon: Icons.login,
+                  baseColor: Colors.orange,
+                  onTap: () => _joinOnlineRoom(notifier),
+                ),
+        ],
+      ),
+    ).animate().fadeIn();
+  }
+
+
+  Future<void> _createOnlineRoom(GameNotifier notifier) async {
+    if (_isJoining) return; // Zaten işlem yapılıyor
+    
+    final name = _nameController.text.trim();
+    
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Lütfen bir isim girin!"))
+      );
+      return;
+    }
+
+    setState(() => _isJoining = true);
+
+    final me = Player(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      isAlive: true,
+      coins: 2,
+      avatar: 'duke',
+    );
+
+    try {
+      final roomId = await LobbyService().createRoom(me);
+      if (mounted) {
+        setState(() {
+          _currentRoomId = roomId;
+          _isJoining = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isJoining = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Hata: $e")));
+      }
+    }
+  }
+
+  Future<void> _joinOnlineRoom(GameNotifier notifier) async {
+    if (_isJoining) return; // Zaten işlem yapılıyor
+    
+    final name = _nameController.text.trim();
+    final code = _roomCodeController.text.trim().toUpperCase();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Lütfen bir isim girin!"))
+      );
+      return;
+    }
+
+    if (code.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("6 haneli kod girin!")));
+      return;
+    }
+
+    setState(() => _isJoining = true);
+
+    final me = Player(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      isAlive: true,
+      coins: 2,
+      avatar: 'duke',
+    );
+
+    try {
+      await LobbyService().joinRoom(code, me);
+      if (mounted) {
+        setState(() {
+          _currentRoomId = code;
+          _isJoining = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isJoining = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Hata: $e")));
+      }
+    }
+  }
+
+  Future<void> _startOnlineGame(GameNotifier notifier, GameState currentState) async {
+    if (_currentRoomId == null) return;
+
+    final initialState = ref.read(gameEngineProvider).initializeGame(currentState.players);
+    await LobbyService().startGame(_currentRoomId!, initialState);
+    
+    notifier.startGame(currentState.players);
+    
+    setState(() {
+      _isOnlineMode = false;
+      _currentRoomId = null;
+    });
   }
 
   Widget _buildPassAndPlaySetup(GameNotifier notifier) {
