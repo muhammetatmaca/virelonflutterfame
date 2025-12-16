@@ -99,13 +99,51 @@ class GameNotifier extends StateNotifier<GameState> {
     return _engine.canBlockForeignAid(state, blockerId, receiverId);
   }
 
-  // Kayyum'a katıl (Çoklu Avukat)
+  // Kayyum'a katıl (Avukat olarak ilan et)
   void joinKayyum(String playerId) {
     List<String> updatedClaimants = List.from(state.kayyumClaimants);
+    List<String> updatedSeenBy = List.from(state.kayyumSeenBy);
+    
     if (!updatedClaimants.contains(playerId)) {
       updatedClaimants.add(playerId);
     }
-    state = state.copyWith(kayyumClaimants: updatedClaimants);
+    if (!updatedSeenBy.contains(playerId)) {
+      updatedSeenBy.add(playerId);
+    }
+    
+    state = state.copyWith(
+      kayyumClaimants: updatedClaimants,
+      kayyumSeenBy: updatedSeenBy,
+    );
+  }
+  
+  // Kayyum'u geç (Avukat değilim / istemiyorum)
+  void passKayyum(String playerId) {
+    List<String> updatedSeenBy = List.from(state.kayyumSeenBy);
+    if (!updatedSeenBy.contains(playerId)) {
+      updatedSeenBy.add(playerId);
+    }
+    state = state.copyWith(kayyumSeenBy: updatedSeenBy);
+  }
+  
+  // Sıradaki Kayyum bidding oyuncusu (SADECE canlı oyuncular, ölenler hariç)
+  String? getNextKayyumBidder() {
+    // Ölen oyuncuların ID'lerini bul
+    final deadPlayerIds = state.players.where((p) => !p.isAlive).map((p) => p.id).toSet();
+    
+    // Sadece canlı oyuncular (ölen oyuncu ve hedef hariç)
+    final eligiblePlayers = state.players.where((p) => 
+      p.isAlive && 
+      p.id != state.actionTargetId &&
+      !deadPlayerIds.contains(p.id)
+    ).toList();
+    
+    for (var player in eligiblePlayers) {
+      if (!state.kayyumSeenBy.contains(player.id)) {
+        return player.id;
+      }
+    }
+    return null; // Herkes karar verdi
   }
 
   // Kayyum bidding'i bitir ve para paylaşımına geç

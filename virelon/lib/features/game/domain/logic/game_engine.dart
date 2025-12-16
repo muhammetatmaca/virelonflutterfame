@@ -735,13 +735,14 @@ class GameEngine {
     final challenged = current.players.firstWhere((p) => p.id == challengedId);
     final claimedChar = current.claimedCharacter;
     
-    // Action challenge için blockerId'yi sıfırla, yoksa verifyClaim yanlış hesaplar
+    // Action challenge için blockerId'yi sıfırla
     final bool isActionChallenge = current.phase == GamePhase.actionPending;
     
     return current.copyWith(
       phase: GamePhase.challengeVerification,
       challengerId: challengerId,
-      blockerId: isActionChallenge ? null : current.blockerId, // Action challenge'da blockerId null olmalı
+      challengedPlayerId: challengedId, // Challenge edilen kişiyi state'e kaydet (burada challengedId zaten targetPlayer)
+      blockerId: isActionChallenge ? null : current.blockerId, 
       lastLog: "${challenger.name}, ${challenged.name}'e MEYDAN OKUYOR! ${claimedChar?.displayName} kartını göster!"
     );
   }
@@ -752,11 +753,17 @@ class GameEngine {
 
     final challengerId = state.challengerId!;
     
-    // Action Challenge sırasında `blockerId` boştur (declareAction boş döndürür).
-    // Block Challenge sırasında `blockerId` doludur (declareBlock set eder).
-    // Ancak `resolveSuccess` içinde targetId -> blockerId set ediyoruz ama oraya gelmeden challenge oluyor.
-    bool isActionChallenge = state.blockerId == null;
-    String challengedId = isActionChallenge ? state.actionInitiatorId! : state.blockerId!;
+    // isActionChallenge değişkenini en başta tanımla ki tüm fonksiyonda erişilebilsin
+    final bool isActionChallenge = state.blockerId == null;
+
+    // Eğer state içinde challengedPlayerId varsa onu kullan (en güvenli yöntem)
+    // Yoksa eski yönteme düş (Geri uyumluluk)
+    String challengedId;
+    if (state.challengedPlayerId != null) {
+      challengedId = state.challengedPlayerId!;
+    } else {
+      challengedId = isActionChallenge ? state.actionInitiatorId! : state.blockerId!;
+    }
 
     final claimedChar = state.claimedCharacter; 
     
@@ -923,11 +930,13 @@ class GameEngine {
     // - Yolsuzluk (Steal)
     // - Manipülasyon (Manipulate)
     const restrictedActions = [
-      GameAction.coup,
-      GameAction.convertOther,
-      GameAction.steal,
-      GameAction.manipulate,
-    ];
+    GameAction.coup,
+    GameAction.convertOther,
+    GameAction.steal,
+    GameAction.manipulate,
+    GameAction.assassinate, // Suikast da kısıtlamaya dahil
+    GameAction.investigate, // Sorgu da takım arkadaşına yapılamaz (Tercihen)
+  ];
     
     if (!restrictedActions.contains(action)) {
       return true;
@@ -1148,7 +1157,15 @@ class GameEngine {
     int totalLoot = victim.coins;
     
     List<String> claimants = state.kayyumClaimants;
-    if (claimants.isEmpty) return _nextTurn(state);
+    
+    // Kimse talep etmediyse para ölen oyuncuda kalır (sonraki Kayyum hamlesi için)
+    if (claimants.isEmpty) {
+      return _nextTurn(state.copyWith(
+        kayyumClaimants: [],
+        kayyumSeenBy: [],
+        lastLog: "Kimse Kayyum talep etmedi. ${victim.name}'in ${totalLoot} altını sahipsiz kaldı."
+      ));
+    }
 
     // Para paylaşımı
     int sharePerPerson = totalLoot ~/ claimants.length;
@@ -1176,6 +1193,7 @@ class GameEngine {
       players: updatedPlayers,
       treasury: newTreasury,
       kayyumClaimants: [],
+      kayyumSeenBy: [],
       lastLog: log
     ));
   }

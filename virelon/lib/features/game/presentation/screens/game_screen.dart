@@ -1233,9 +1233,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // --- Challenge Verification UI (Kart Gösterme Ekranı) ---
   Widget _buildChallengeVerificationUI(GameState state, GameNotifier notifier) {
-    // Action challenge için blockerId null olmalı, block challenge için blockerId dolu
-    final bool isActionChallenge = state.blockerId == null;
-    final challengedId = isActionChallenge ? state.actionInitiatorId : state.blockerId;
+    // Öncelikle state'deki kesin bilgiyi kullan
+    String? challengedId = state.challengedPlayerId;
+    
+    // Yoksa (eski versiyon uyumluluğu) hesapla
+    if (challengedId == null) {
+      final bool isActionChallenge = state.blockerId == null;
+      challengedId = isActionChallenge ? state.actionInitiatorId : state.blockerId;
+    }
+
     if (challengedId == null) return const SizedBox.shrink();
     
     final challenged = state.players.firstWhere((p) => p.id == challengedId);
@@ -1919,7 +1925,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Resolution (Lose Card) UI ---
   Widget _buildResolutionUI(GameState state, GameNotifier notifier) {
-    final victimId = state.actionTargetId; // Challenge'da victim = actionTargetId
+    // Challenge sonucu: blockerId = kaybeden kişi
+    final victimId = state.blockerId;
     if (victimId == null) return const Center(child: Text("Hata: Kurban bulunamadı"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first); 
@@ -1984,7 +1991,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Victim Handover UI (Telefonu kurbana ver) ---
   Widget _buildVictimHandoverUI(GameState state, GameNotifier notifier) {
-    final victimId = state.actionTargetId; // Challenge'da victim = actionTargetId
+    // Challenge sonucu: blockerId = kaybeden kişi
+    final victimId = state.blockerId;
     if (victimId == null) return const Center(child: Text("Hata: Kurban ID yok"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first);
@@ -2190,10 +2198,17 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildKayyumBiddingUI(GameState state, GameNotifier notifier) {
     final victim = state.players.firstWhere((p) => p.id == state.actionTargetId);
     final claimants = state.kayyumClaimants;
-    final currentUser = state.players.firstWhere((p) => p.isTurn);
     
-    bool isClaimant = claimants.contains(currentUser.id);
-    bool canJoin = !isClaimant && currentUser.isAlive;
+    // Sıradaki bidder'ı bul
+    final nextBidderId = notifier.getNextKayyumBidder();
+    
+    // Herkes karar verdiyse finalize ekranı göster
+    if (nextBidderId == null) {
+      return _buildKayyumFinalizeUI(state, notifier, victim, claimants);
+    }
+    
+    final currentBidder = state.players.firstWhere((p) => p.id == nextBidderId);
+    bool isClaimant = claimants.contains(currentBidder.id);
 
     return Container(
       decoration: BoxDecoration(
@@ -2232,9 +2247,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.monetization_on, color: Colors.amber, size: 20),
+                        Icon(Icons.monetization_on, color: Colors.amber, size: 24),
                         const SizedBox(width: 8),
-                        Text("${victim.coins} ALTIN", style: AppTheme.chip.copyWith(color: Colors.amber, fontSize: 18)),
+                        Text("${victim.coins} ALTIN MİRAS", style: AppTheme.chip.copyWith(color: Colors.amber, fontSize: 20)),
                       ],
                     ),
                   ],
@@ -2243,90 +2258,246 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               
               const SizedBox(height: 24),
               
-              // Kayyum Listesi
+              // Mevcut Kayyum Listesi
+              if (claimants.isNotEmpty) ...[
+                GlassContainer(
+                  padding: const EdgeInsets.all(16),
+                  borderColor: Character.avukat.color,
+                  child: Column(
+                    children: [
+                      Text("KAYYUM TALEP EDENLER (${claimants.length})", style: AppTheme.chip.copyWith(color: Character.avukat.color)),
+                      const SizedBox(height: 12),
+                      ...claimants.map((id) {
+                        final player = state.players.firstWhere((p) => p.id == id);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Character.avukat.icon, color: Character.avukat.color, size: 18),
+                              const SizedBox(width: 8),
+                              Text(player.name.toUpperCase(), style: AppTheme.body.copyWith(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+              
+              // Handover Ekranı - Sıradaki oyuncu
               GlassContainer(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
+                borderColor: AppTheme.primary,
+                isGlowing: true,
                 child: Column(
                   children: [
-                    Text("KAYYUMLAR (${claimants.length})", style: AppTheme.titleMedium),
+                    const Icon(Icons.phonelink_lock, size: 48, color: Colors.white54),
                     const SizedBox(height: 16),
-                    ...claimants.map((id) {
-                      final player = state.players.firstWhere((p) => p.id == id);
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: GestureDetector(
-                          onTap: () {
-                            // Meydan okuma
-                            if (currentUser.id != id && currentUser.isAlive) {
-                              showDialog(
-                                context: context,
-                                builder: (c) => AlertDialog(
-                                  backgroundColor: AppTheme.surface,
-                                  title: Text("${player.name}'e Meydan Oku?", style: AppTheme.titleMedium),
-                                  content: Text("${player.name}'in Avukat kartı olmadığını düşünüyor musun?", style: AppTheme.body),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(c),
-                                      child: Text("İPTAL", style: TextStyle(color: Colors.white54)),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
-                                      onPressed: () {
-                                        Navigator.pop(c);
-                                        notifier.performChallenge(currentUser.id, challengedId: player.id);
-                                      },
-                                      child: Text("MEYDAN OKU!", style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Character.avukat.color.withOpacity(0.2),
-                              border: Border.all(color: Character.avukat.color, width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Character.avukat.icon, color: Character.avukat.color),
-                                const SizedBox(width: 12),
-                                Text(player.name.toUpperCase(), style: AppTheme.body.copyWith(fontWeight: FontWeight.bold)),
-                                const Spacer(),
-                                if (currentUser.id != id && currentUser.isAlive)
-                                  Icon(Icons.touch_app, color: Colors.white54, size: 16),
-                              ],
-                            ),
+                    Text("SIRADAKİ OYUNCU", style: AppTheme.chip.copyWith(color: Colors.white70)),
+                    const SizedBox(height: 8),
+                    Text(
+                      currentBidder.name.toUpperCase(),
+                      style: AppTheme.headline.copyWith(color: AppTheme.primary, fontSize: 28),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Telefonu ${currentBidder.name} oyuncusuna verin.\nAvukat olarak Kayyum talep edebilir.",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white54, height: 1.5),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Butonlar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: NeonButton(
+                            label: "PAS GEÇ",
+                            icon: Icons.skip_next,
+                            baseColor: Colors.grey,
+                            onTap: () => notifier.passKayyum(currentBidder.id),
                           ),
                         ),
-                      );
-                    }).toList(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: NeonButton(
+                            label: "AVUKAT'IM!",
+                            icon: Icons.gavel,
+                            baseColor: Character.avukat.color,
+                            onTap: () => notifier.joinKayyum(currentBidder.id),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // Kayyum Finalize UI - Herkes karar verdikten sonra
+  Widget _buildKayyumFinalizeUI(GameState state, GameNotifier notifier, Player victim, List<String> claimants) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppTheme.background, Colors.black],
+        ),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.account_balance, size: 80, color: Character.avukat.color)
+                  .animate().scale(),
+              const SizedBox(height: 24),
+              
+              Text(
+                claimants.isEmpty ? "KAYYUM YOK!" : "KAYYUM SONUCU",
+                style: AppTheme.titleLarge.copyWith(fontSize: 28, letterSpacing: 2),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              GlassContainer(
+                padding: const EdgeInsets.all(24),
+                borderColor: claimants.isEmpty ? Colors.grey : Character.avukat.color,
+                child: Column(
+                  children: [
+                    Text("${victim.name}'in Mirası", style: AppTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.monetization_on, color: Colors.amber, size: 32),
+                        const SizedBox(width: 8),
+                        Text("${victim.coins} ALTIN", style: AppTheme.headline.copyWith(color: Colors.amber, fontSize: 28)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    if (claimants.isEmpty) ...[
+                      const Text(
+                        "Kimse Avukat olarak çıkmadı!\nPara HAVUZA dönecek.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ] else if (claimants.length == 1) ...[
+                      Text(
+                        "${state.players.firstWhere((p) => p.id == claimants.first).name} tüm parayı alacak!",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Character.avukat.color, fontWeight: FontWeight.bold),
+                      ),
+                    ] else ...[
+                      Text(
+                        "${claimants.length} Avukat paylaşacak!\nHer biri ${victim.coins ~/ claimants.length} altın alacak.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Character.avukat.color, fontWeight: FontWeight.bold),
+                      ),
+                      if (victim.coins % claimants.length > 0)
+                        Text(
+                          "${victim.coins % claimants.length} altın Kara Para'ya gidecek.",
+                          style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+                        ),
+                    ],
                   ],
                 ),
               ),
               
               const SizedBox(height: 24),
               
-              // Kullanıcı Bilgisi
-              Text("SEN: ${currentUser.name.toUpperCase()}", style: AppTheme.chip.copyWith(fontSize: 14)),
-              const SizedBox(height: 16),
-              
-              // Butonlar
-              if (canJoin) ...[
-                NeonButton(
-                  label: "AVUKAT İLE KAYYUM OL!",
-                  icon: Icons.gavel,
-                  baseColor: Character.avukat.color,
-                  isLarge: true,
-                  onTap: () => notifier.joinKayyum(currentUser.id),
-                ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(begin: const Offset(1, 1), end: const Offset(1.05, 1.05)),
+              // Kayyum listesi (challenge için)
+              if (claimants.isNotEmpty) ...[
+                Text("BU OYUNCULARA MEYDAN OKUYABİLİRSİNİZ:", style: AppTheme.chip.copyWith(fontSize: 12)),
                 const SizedBox(height: 12),
+                ...claimants.map((id) {
+                  final player = state.players.firstWhere((p) => p.id == id);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: GestureDetector(
+                        onTap: () {
+                          // İtiraz edecek oyuncuyu seçtir
+                          final possibleChallengers = state.players.where((p) => 
+                            p.isAlive && 
+                            p.id != id && // Kendine itiraz edemez
+                            p.id != state.actionTargetId // Ölü oyuncu itiraz edemez
+                          ).toList();
+
+                          showDialog(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              backgroundColor: AppTheme.surface,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: Text("KİM İTİRAZ EDİYOR?", style: AppTheme.headline.copyWith(fontSize: 20)),
+                              content: SizedBox(
+                                width: double.maxFinite,
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: possibleChallengers.length,
+                                  separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.1)),
+                                  itemBuilder: (context, index) {
+                                    final challenger = possibleChallengers[index];
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: AppTheme.danger,
+                                        child: Text(challenger.name[0], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                                      ),
+                                      title: Text(challenger.name.toUpperCase(), style: const TextStyle(color: Colors.white)),
+                                      trailing: const Icon(Icons.flash_on, color: AppTheme.danger),
+                                      onTap: () {
+                                        Navigator.pop(c); // Kapat
+                                        // Seçilen challenger ile itiraz başlat
+                                        notifier.performChallenge(challenger.id, challengedId: id);
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c),
+                                  child: const Text("İPTAL", style: TextStyle(color: Colors.white54)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Character.avukat.color.withOpacity(0.2),
+                          border: Border.all(color: Character.avukat.color),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Character.avukat.icon, color: Character.avukat.color, size: 18),
+                            const SizedBox(width: 8),
+                            Text(player.name.toUpperCase(), style: AppTheme.body),
+                            const SizedBox(width: 8),
+                            Icon(Icons.touch_app, color: Colors.white38, size: 14),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+                const SizedBox(height: 24),
               ],
               
               NeonButton(
-                label: isClaimant ? "BAŞKA KAYYUM YOK, PAYLAŞ!" : "KAYYUM YOKTUR, DEVAM ET",
+                label: claimants.isEmpty ? "PARAYI HAVUZA GÖNDER" : "KAYYUMU ONAYLA",
                 icon: Icons.check_circle,
                 baseColor: AppTheme.success,
                 isLarge: true,

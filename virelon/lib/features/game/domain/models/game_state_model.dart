@@ -17,6 +17,7 @@ class GameState extends Equatable {
   final String? blockerId; // Bloklayan kişi ID
   final Character? claimedCharacter; // İddia edilen karakter
   final String? challengerId; // Meydan okuyan kişi
+  final String? challengedPlayerId; // Meydan okunan kişi (Kayyum vs için gerekli)
 
   // Log mesajları (Son olan olay)
   final String lastLog;
@@ -24,6 +25,7 @@ class GameState extends Equatable {
   // Plus / Setup
   final List<String> rolesSeenBy; // Hangi oyuncular rolünü gördü (Setup için)
   final List<String> kayyumClaimants; // Kayyum paylaşımına girenler
+  final List<String> kayyumSeenBy; // Kayyum bidding'de karar veren oyuncular
   final List<Character> manipulationCards; // Gazeteci manipülasyon havuzu
   final Character? investigatedCard; // Engizisyoncu tarafından incelenen kart
 
@@ -40,9 +42,11 @@ class GameState extends Equatable {
     this.blockerId,
     this.claimedCharacter,
     this.challengerId,
+    this.challengedPlayerId,
     this.lastLog = '',
     this.rolesSeenBy = const [],
     this.kayyumClaimants = const [],
+    this.kayyumSeenBy = const [],
     this.manipulationCards = const [],
     this.investigatedCard,
   });
@@ -60,9 +64,11 @@ class GameState extends Equatable {
     String? blockerId,
     Character? claimedCharacter,
     String? challengerId,
+    String? challengedPlayerId,
     String? lastLog,
     List<String>? rolesSeenBy,
     List<String>? kayyumClaimants,
+    List<String>? kayyumSeenBy,
     List<Character>? manipulationCards,
     Character? investigatedCard,
   }) {
@@ -79,9 +85,11 @@ class GameState extends Equatable {
       blockerId: blockerId ?? this.blockerId,
       claimedCharacter: claimedCharacter ?? this.claimedCharacter,
       challengerId: challengerId ?? this.challengerId,
+      challengedPlayerId: challengedPlayerId ?? this.challengedPlayerId,
       lastLog: lastLog ?? this.lastLog,
       rolesSeenBy: rolesSeenBy ?? this.rolesSeenBy,
       kayyumClaimants: kayyumClaimants ?? this.kayyumClaimants,
+      kayyumSeenBy: kayyumSeenBy ?? this.kayyumSeenBy,
       manipulationCards: manipulationCards ?? this.manipulationCards,
       investigatedCard: investigatedCard ?? this.investigatedCard,
     );
@@ -101,9 +109,11 @@ class GameState extends Equatable {
         blockerId,
         claimedCharacter,
         challengerId,
+        challengedPlayerId,
         lastLog,
         rolesSeenBy,
         kayyumClaimants,
+        kayyumSeenBy,
         manipulationCards,
         investigatedCard
       ];
