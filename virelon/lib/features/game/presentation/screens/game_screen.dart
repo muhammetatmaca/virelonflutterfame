@@ -891,11 +891,31 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Önceki stream varsa iptal et
     _gameStateSubscription?.cancel();
     
+    GamePhase? _lastPhase; // Önceki phase'i takip et
+    
     _gameStateSubscription = LobbyService().listenToGame(roomId).listen((newState) {
       if (newState != null && mounted) {
         print('📥 [ONLINE] Yeni state geldi! Phase: ${newState.phase}, Players: ${newState.players.length}');
+        
+        // Phase değişti mi kontrol et
+        if (_lastPhase != newState.phase) {
+          print('🔄 [PHASE] Phase değişti: $_lastPhase -> ${newState.phase}');
+          
+          // ActionPending phase'ine girildiyse timer'ı resetle
+          if (newState.phase == GamePhase.actionPending) {
+            _stopResponseTimer();
+            _canPassAction = false;
+            _hasResponded = false;
+            print('⏱️ [TIMER] Timer resetlendi (yeni actionPending)');
+          } else if (newState.phase != GamePhase.actionPending && newState.phase != GamePhase.blockingWindow) {
+            // Diğer phase'lere geçildiğinde timer'ı durdur
+            _stopResponseTimer();
+          }
+          
+          _lastPhase = newState.phase;
+        }
+        
         // Firebase'den gelen state'i direkt uygula
-        // Bu sayede host'un başlattığı oyunu herkes görür
         notifier.state = newState;
       } else {
         print('⚠️ [ONLINE] State null veya widget unmounted');
@@ -1815,6 +1835,46 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final claimedChar = state.claimedCharacter;
     final isEmbezzle = state.currentAction == GameAction.embezzle;
     
+    // Online modda: Sadece challenged kişi kartlarını görmeli
+    final currentUser = getCurrentPlayer(state);
+    final isMe = currentUser.id == challengedId;
+    
+    // Online modda diğer oyuncular için bekleme ekranı
+    if (_gameStarted && _currentRoomId != null && !isMe) {
+      return Center(
+        child: GlassContainer(
+          padding: const EdgeInsets.all(32),
+          borderColor: AppTheme.warning,
+          isGlowing: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.gavel, size: 60, color: AppTheme.warning)
+                  .animate(onPlay: (c) => c.repeat())
+                  .shake(duration: 1.seconds),
+              const SizedBox(height: 24),
+              Text(
+                "MEYDAN OKUMA!",
+                style: AppTheme.headline.copyWith(color: AppTheme.warning, fontSize: 22),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "${challenged.name} kartlarını ispatlıyor...",
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(color: AppTheme.warning),
+              const SizedBox(height: 16),
+              const Text(
+                "Sonuç bekleniyor...",
+                style: TextStyle(color: Colors.white54),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
     return Center(
       child: SingleChildScrollView(
         child: Padding(
@@ -2615,8 +2675,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Resolution (Lose Card) UI ---
   Widget _buildResolutionUI(GameState state, GameNotifier notifier) {
-    // Challenge sonucu: blockerId = kaybeden kişi
-    final victimId = state.blockerId;
+    // Challenge sonucu: Kurban ID'si farklı yerlerde olabilir
+    String? victimId = state.blockerId;
+    
+    // Eğer blockerId yoksa ve challengerId varsa, challenger kaybetmiş demektir
+    if (victimId == null && state.challengerId != null) {
+      victimId = state.actionTargetId;
+    }
+    
     if (victimId == null) return const Center(child: Text("Hata: Kurban bulunamadı"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first); 
@@ -2655,7 +2721,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                      children: victim.cards.map((card) {
                        return GestureDetector(
                          onTap: () {
-                           notifier.loseCard(victimId, card);
+                           notifier.loseCard(victimId!, card);
                          },
                          child: Column(
                            children: [
@@ -2681,13 +2747,90 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Victim Handover UI (Telefonu kurbana ver) ---
   Widget _buildVictimHandoverUI(GameState state, GameNotifier notifier) {
-    // Challenge sonucu: blockerId = kaybeden kişi
-    final victimId = state.blockerId;
+    // Challenge sonucu: Kurban ID'si farklı yerlerde olabilir
+    // 1. blockerId: Blokçu blöf yaparken yakalandı VEYA action initiator yakalandı
+    // 2. actionTargetId: Challenger (meydan okuyan) kaybetti
+    String? victimId = state.blockerId;
+    
+    // Eğer blockerId yoksa ve challengerId varsa, challenger kaybetmiş demektir
+    if (victimId == null && state.challengerId != null) {
+      // actionTargetId'de olabilir
+      victimId = state.actionTargetId;
+    }
+    
     if (victimId == null) return const Center(child: Text("Hata: Kurban ID yok"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first);
     final isCoup = state.currentAction == GameAction.coup;
+    
+    // Online modda: Victim mi ben mi kontrol et
+    final currentUser = getCurrentPlayer(state);
+    final isMe = currentUser.id == victimId;
+    
+    // Online modda diğer oyuncular için bekleme ekranı
+    if (_gameStarted && _currentRoomId != null && !isMe) {
+      return Center(
+        child: GlassContainer(
+          padding: const EdgeInsets.all(32),
+          borderColor: AppTheme.danger,
+          isGlowing: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.dangerous, size: 60, color: AppTheme.danger)
+                  .animate(onPlay: (c) => c.repeat())
+                  .shake(duration: 1.seconds),
+              const SizedBox(height: 24),
+              Text(
+                isCoup ? "SALDIRI!" : "MEYDAN OKUMA SONUCU",
+                style: AppTheme.headline.copyWith(color: AppTheme.danger, fontSize: 20),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "${victim.name} kart kaybedecek...",
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(color: AppTheme.danger),
+              const SizedBox(height: 16),
+              const Text(
+                "Bekleniyor...",
+                style: TextStyle(color: Colors.white54),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Online modda victim için doğrudan kart seçme ekranına geç
+    if (_gameStarted && _currentRoomId != null && isMe) {
+      // Doğrudan readyForResolution çağır
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          notifier.readyForResolution();
+        }
+      });
+      return Center(
+        child: GlassContainer(
+          padding: const EdgeInsets.all(32),
+          borderColor: AppTheme.danger,
+          isGlowing: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.dangerous, size: 60, color: AppTheme.danger),
+              const SizedBox(height: 16),
+              const Text("Kart seçme ekranına geçiliyor...", style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 16),
+              const CircularProgressIndicator(color: AppTheme.danger),
+            ],
+          ),
+        ),
+      );
+    }
 
+    // Pass & Play modu: Normal telefonu ver ekranı
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
