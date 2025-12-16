@@ -48,6 +48,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _turnTransitionSkipped = false; // turnTransition atlandı mı?
   String? _myPlayerId; // Online modda benim oyuncu ID'm
   String? _sessionId; // Bu oyun oturumu için benzersiz ID
+  bool _onlinePlusMode = false; // Online modda Plus Mode aktif mi?
   int? _myPlayerIndex; // Oyuncu numarası (0, 1, 2, 3...)
   
   // Online Response Timer
@@ -572,9 +573,20 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 
                 print('🎮 [LOBBY] Oyun başlıyor! _myPlayerId: $_myPlayerId');
                 
+                // Plus Mode bilgisini gameState'ten al
+                // Oyuncuların ideolojisi varsa Plus Mode aktif demektir
+                final hasIdeology = gameState.players.any((p) => p.ideology != null);
+                
                 setState(() {
                   _isOnlineMode = false;
                   _gameStarted = true; // OYUN BAŞLADI!
+                  
+                  // Plus Mode kontrolü
+                  if (hasIdeology) {
+                    _isPlusMode = true;
+                    _onlinePlusMode = true;
+                    print('✨ [PLUS] Plus Mode aktif (ideoloji tespit edildi)');
+                  }
                 });
               }
             });
@@ -640,6 +652,175 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                
+                // Plus Mode Switch (Sadece Host görür)
+                if (isHost) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _onlinePlusMode ? Colors.purple.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _onlinePlusMode ? Colors.purple : Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              color: _onlinePlusMode ? Colors.purple : Colors.white54,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "PLUS MOD",
+                              style: TextStyle(
+                                color: _onlinePlusMode ? Colors.purple : Colors.white70,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Switch(
+                          value: _onlinePlusMode,
+                          onChanged: (value) => setState(() => _onlinePlusMode = value),
+                          activeColor: Colors.purple,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Plus Mode Seçenekleri (Açıksa)
+                  if (_onlinePlusMode) ...[
+                    const SizedBox(height: 12),
+                    const Text("ÖZEL KARAKTER SEÇİMİ", style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _plusModeSpecial = Character.avukat),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _plusModeSpecial == Character.avukat ? Character.avukat.color.withOpacity(0.4) : Colors.transparent,
+                                border: Border.all(color: _plusModeSpecial == Character.avukat ? Character.avukat.color : Colors.white24),
+                                borderRadius: BorderRadius.circular(8)
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Character.avukat.icon, color: Colors.white, size: 18),
+                                  const SizedBox(height: 2),
+                                  const Text("AVUKAT", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ]
+                              )
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _plusModeSpecial = Character.countess),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _plusModeSpecial == Character.countess ? Character.countess.color.withOpacity(0.4) : Colors.transparent,
+                                border: Border.all(color: _plusModeSpecial == Character.countess ? Character.countess.color : Colors.white24),
+                                borderRadius: BorderRadius.circular(8)
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Character.countess.icon, color: Colors.white, size: 18),
+                                  const SizedBox(height: 2),
+                                  const Text("KONTES", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ]
+                              )
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    const Text("VARIANT SEÇİMİ (ELÇİ YERİNE)", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _plusModeVariant2 = Character.ambassador),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _plusModeVariant2 == Character.ambassador ? Character.ambassador.color.withOpacity(0.4) : Colors.transparent,
+                                border: Border.all(color: _plusModeVariant2 == Character.ambassador ? Character.ambassador.color : Colors.white24),
+                                borderRadius: BorderRadius.circular(8)
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Character.ambassador.icon, color: Colors.white, size: 16),
+                                  const SizedBox(height: 2),
+                                  const Text("ELÇİ", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ]
+                              )
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _plusModeVariant2 = Character.inquisitor),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _plusModeVariant2 == Character.inquisitor ? Character.inquisitor.color.withOpacity(0.4) : Colors.transparent,
+                                border: Border.all(color: _plusModeVariant2 == Character.inquisitor ? Character.inquisitor.color : Colors.white24),
+                                borderRadius: BorderRadius.circular(8)
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Character.inquisitor.icon, color: Colors.white, size: 16),
+                                  const SizedBox(height: 2),
+                                  const Text("ENGİZ.", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ]
+                              )
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _plusModeVariant2 = Character.gazeteci),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _plusModeVariant2 == Character.gazeteci ? Character.gazeteci.color.withOpacity(0.4) : Colors.transparent,
+                                border: Border.all(color: _plusModeVariant2 == Character.gazeteci ? Character.gazeteci.color : Colors.white24),
+                                borderRadius: BorderRadius.circular(8)
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(Character.gazeteci.icon, color: Colors.white, size: 16),
+                                  const SizedBox(height: 2),
+                                  const Text("GAZETECİ", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ]
+                              )
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "İdeolojiler, Kara Para ve özel karakterler aktif!",
+                      style: TextStyle(color: Colors.purple, fontSize: 10),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                ],
+                
                 if (isHost && gameState.players.length >= 3) ...[
                   NeonButton(
                     label: "OYUNU BAŞLAT",
@@ -845,13 +1026,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Future<void> _startOnlineGame(GameNotifier notifier, GameState currentState) async {
     if (_currentRoomId == null) return;
 
-    print('🎮 [ONLINE] Oyun başlatılıyor... Room: $_currentRoomId');
+    print('🎮 [ONLINE] Oyun başlatılıyor... Room: $_currentRoomId, PlusMode: $_onlinePlusMode, Special: $_plusModeSpecial, Variant: $_plusModeVariant2');
 
     // Online mode'u aktif et (tüm oyuncular için)
     notifier.setRoomId(_currentRoomId);
 
     // SADECE HOST oyunu başlatır ve Firebase'e gönderir
-    final initialState = ref.read(gameEngineProvider).initializeGame(currentState.players);
+    // Plus Mode seçimine göre oyunu başlat
+    final initialState = ref.read(gameEngineProvider).initializeGame(
+      currentState.players,
+      isPlusMode: _onlinePlusMode,
+      plusSpecial: _onlinePlusMode ? _plusModeSpecial : null,
+      plusVariant2: _onlinePlusMode ? _plusModeVariant2 : null,
+    );
     print('🎮 [ONLINE] Initial state oluşturuldu. Phase: ${initialState.phase}');
     
     try {
@@ -880,6 +1067,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     setState(() {
       _isOnlineMode = false;
       _gameStarted = true; // Oyun başladı!
+      _isPlusMode = _onlinePlusMode; // Plus mode aktif mi?
+      // _plusModeSpecial ve _plusModeVariant2 zaten seçilmiş, değiştirme
       // _currentRoomId'yi TUTUYORUZ (online mode devam ediyor)
     });
   }
