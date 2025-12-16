@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virelon/core/enums/game_enums.dart';
 import 'package:virelon/core/theme/app_theme.dart';
 import 'package:virelon/core/widgets/glass_container.dart';
@@ -40,6 +42,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _isOnlineMode = false;
   String? _currentRoomId;
   bool _isJoining = false; // Çift tıklama önleme
+  StreamSubscription<GameState?>? _gameStateSubscription; // Stream kontrolü için
+  bool _gameStarted = false; // Oyun başladı mı? (online mode için)
+  bool _rolesSkipped = false; // assigningRoles atlandı mı?
+  bool _turnTransitionSkipped = false; // turnTransition atlandı mı?
+  String? _myPlayerId; // Online modda benim oyuncu ID'm
+  String? _sessionId; // Bu oyun oturumu için benzersiz ID
+  int? _myPlayerIndex; // Oyuncu numarası (0, 1, 2, 3...)
   
   // Phase States
   List<int> _exchangeSelectedIndices = []; // Index bazlı seçim
@@ -68,16 +77,55 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   void initState() {
     super.initState();
+    _loadMyPlayerId(); // Kaydedilmiş ID'yi yükle
     // Load Ads
     _loadBannerAd();
     _loadRewardedAd();
     _loadAppOpenAd();
   }
 
+  Future<void> _loadMyPlayerId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString('my_player_id');
+    if (savedId != null) {
+      setState(() {
+        _myPlayerId = savedId;
+      });
+      print('💾 [STORAGE] Kaydedilmiş ID yüklendi: $savedId');
+    }
+  }
+
+  Future<void> _saveMyPlayerId(String playerId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('my_player_id', playerId);
+    print('💾 [STORAGE] ID kaydedildi: $playerId');
+  }
+
+  Future<void> _loadOrCreateSessionId(String roomId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'session_${roomId}_${_myPlayerId}';
+    String? savedSessionId = prefs.getString(key);
+    
+    if (savedSessionId == null) {
+      // Yeni session ID oluştur
+      savedSessionId = '${_myPlayerId}_${DateTime.now().millisecondsSinceEpoch}';
+      await prefs.setString(key, savedSessionId);
+      print('🆔 [SESSION] Yeni session ID oluşturuldu: $savedSessionId');
+    } else {
+      print('🆔 [SESSION] Kaydedilmiş session ID yüklendi: $savedSessionId');
+    }
+    
+    setState(() {
+      _sessionId = savedSessionId;
+    });
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
+    _roomCodeController.dispose();
     _playerListScrollController.dispose();
+    _gameStateSubscription?.cancel();
     _bannerAd?.dispose();
     _rewardedAd?.dispose();
     _appOpenAd?.dispose();
@@ -259,8 +307,73 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               child: Builder(
                 builder: (context) {
                   if (gameState.players.isEmpty) return _buildMenuFlow(context, notifier);
-                  if (gameState.phase == GamePhase.assigningRoles) return _buildRoleDistributionUI(gameState, notifier);
-                  if (gameState.phase == GamePhase.turnTransition) return _buildTurnTransitionUI(gameState, notifier);
+                  
+                  // Online modda rol görme ve turn transition atla (sadece oyun başladıysa)
+                  final isOnlineGame = _gameStarted && _currentRoomId != null;
+                  
+                  if (gameState.phase == GamePhase.assigningRoles) {
+                    if (isOnlineGame) {
+                      // Online modda TÜM oyuncular için rolleri onayla (SADECE BİR KERE)
+                      if (!_rolesSkipped) {
+                        _rolesSkipped = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            print('⏭️ [ONLINE] Tüm oyuncular için roller onaylanıyor...');
+                            // Tüm oyuncuları sırayla onayla
+                            for (var player in gameState.players) {
+                              notifier.confirmRoleSeen(player.id);
+                            }
+                          }
+                        });
+                      }
+                      // Online modda ROL GÖRME UI'I HİÇ GÖSTERİLMEZ
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text("Oyun hazırlanıyor...", style: TextStyle(color: Colors.white)),
+                          ],
+                        ),
+                      );
+                    }
+                    // Pass & Play modda normal UI göster
+                    return _buildRoleDistributionUI(gameState, notifier);
+                  }
+                  
+                  if (gameState.phase == GamePhase.turnTransition) {
+                    if (isOnlineGame && !_turnTransitionSkipped) {
+                      // Online modda direkt tura başla (SADECE BİR KERE)
+                      _turnTransitionSkipped = true;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          print('⏭️ [ONLINE] turnTransition atlanıyor...');
+                          notifier.readyForTurn();
+                        }
+                      });
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    // Her yeni tur için flag'i sıfırla
+                    if (gameState.phase != GamePhase.turnTransition) {
+                      _turnTransitionSkipped = false;
+                    }
+                    return _buildTurnTransitionUI(gameState, notifier);
+                  }
+                  
+                  // Online modda "telefonu ver" ekranlarını atla
+                  if (isOnlineGame) {
+                    if (gameState.phase == GamePhase.victimHandover) {
+                      // Victim kart seçimi direkt gösterilsin
+                      return _buildVictimHandoverUI(gameState, notifier);
+                    }
+                    if (gameState.phase == GamePhase.investigationHandover || 
+                        gameState.phase == GamePhase.investigationReturn) {
+                      // Investigation handover atla, direkt kart seçimine geç
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                  }
+                  
                   if (gameState.phase == GamePhase.actionPending) return _buildActionPendingUI(gameState, notifier);
                   if (gameState.phase == GamePhase.kayyumBidding) return _buildKayyumBiddingUI(gameState, notifier);
                   if (gameState.phase == GamePhase.victimHandover) return _buildVictimHandoverUI(gameState, notifier);
@@ -401,7 +514,55 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           }
 
           final gameState = snapshot.data!;
-          final isHost = gameState.players.isNotEmpty && gameState.players.first.id == gameState.currentPlayerId;
+          
+          // Oyun başladıysa (phase artık setup değil), otomatik geçiş yap
+          if (gameState.phase != GamePhase.setup) {
+            // Online mode'u aktif et
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (mounted) {
+                final notifier = ref.read(gameStateProvider.notifier);
+                notifier.setRoomId(_currentRoomId);
+                _listenToGameUpdates(_currentRoomId!, notifier);
+                
+                // _myPlayerId'yi kontrol et ve kaydet
+                if (_myPlayerId == null) {
+                  // SharedPreferences'tan yükle
+                  final prefs = await SharedPreferences.getInstance();
+                  final savedId = prefs.getString('my_player_id');
+                  if (savedId != null) {
+                    _myPlayerId = savedId;
+                    print('💾 [LOBBY] ID SharedPreferences\'tan yüklendi: $savedId');
+                  }
+                }
+                
+                print('🎮 [LOBBY] Oyun başlıyor! _myPlayerId: $_myPlayerId');
+                
+                setState(() {
+                  _isOnlineMode = false;
+                  _gameStarted = true; // OYUN BAŞLADI!
+                });
+              }
+            });
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text("Oyun başlıyor...", style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            );
+          }
+
+          // Her oyuncu kendi ID'sini bilmiyor, bu yüzden Firebase'den hostId almalıyız
+          // Şimdilik: İlk oyuncu = host kabul ediyoruz
+          // TODO: LobbyService'e hostId field'ı ekle
+          final myPlayerId = gameState.players.firstWhere(
+            (p) => p.name == _nameController.text.trim(),
+            orElse: () => gameState.players.first
+          ).id;
+          final isHost = gameState.players.isNotEmpty && gameState.players.first.id == myPlayerId;
 
           return GlassContainer(
             width: 360,
@@ -565,8 +726,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     setState(() => _isJoining = true);
 
+    final playerId = DateTime.now().millisecondsSinceEpoch.toString();
     final me = Player(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: playerId,
       name: name,
       isAlive: true,
       coins: 2,
@@ -578,8 +740,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (mounted) {
         setState(() {
           _currentRoomId = roomId;
+          _myPlayerId = playerId; // ID'yi kaydet!
           _isJoining = false;
         });
+        // SharedPreferences'a kaydet
+        await _saveMyPlayerId(playerId);
+        // Session ID oluştur/yükle
+        await _loadOrCreateSessionId(roomId);
+        print('💾 [STORAGE] Oyuncu ID kaydediliyor: $playerId');
       }
     } catch (e) {
       if (mounted) {
@@ -609,8 +777,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     setState(() => _isJoining = true);
 
+    final playerId = DateTime.now().millisecondsSinceEpoch.toString();
     final me = Player(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: playerId,
       name: name,
       isAlive: true,
       coins: 2,
@@ -622,8 +791,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (mounted) {
         setState(() {
           _currentRoomId = code;
+          _myPlayerId = playerId; // ID'yi kaydet!
           _isJoining = false;
         });
+        // SharedPreferences'a kaydet
+        await _saveMyPlayerId(playerId);
+        // Session ID oluştur/yükle
+        await _loadOrCreateSessionId(code);
       }
     } catch (e) {
       if (mounted) {
@@ -636,14 +810,63 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Future<void> _startOnlineGame(GameNotifier notifier, GameState currentState) async {
     if (_currentRoomId == null) return;
 
+    print('🎮 [ONLINE] Oyun başlatılıyor... Room: $_currentRoomId');
+
+    // Online mode'u aktif et (tüm oyuncular için)
+    notifier.setRoomId(_currentRoomId);
+
+    // SADECE HOST oyunu başlatır ve Firebase'e gönderir
     final initialState = ref.read(gameEngineProvider).initializeGame(currentState.players);
-    await LobbyService().startGame(_currentRoomId!, initialState);
+    print('🎮 [ONLINE] Initial state oluşturuldu. Phase: ${initialState.phase}');
     
-    notifier.startGame(currentState.players);
+    try {
+      await LobbyService().startGame(_currentRoomId!, initialState);
+      print('✅ [ONLINE] Firebase\'e yazıldı!');
+    } catch (e) {
+      print('❌ [ONLINE] Firebase yazma hatası: $e');
+    }
     
+    // Firebase'den güncellemeleri dinle (tüm oyuncular için)
+    _listenToGameUpdates(_currentRoomId!, notifier);
+    
+    // Benim oyuncu index'imi bul ve kaydet
+    final myIndex = currentState.players.indexWhere((p) => p.id == _myPlayerId);
+    if (myIndex != -1) {
+      setState(() {
+        _myPlayerIndex = myIndex;
+      });
+      // SharedPreferences'a kaydet
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('player_index_$_currentRoomId', myIndex);
+      print('🔢 [INDEX] Oyuncu numarası: ${myIndex + 1} (Index: $myIndex)');
+    }
+    
+    // Lobiden çık, oyuna geç
     setState(() {
       _isOnlineMode = false;
-      _currentRoomId = null;
+      _gameStarted = true; // Oyun başladı!
+      // _currentRoomId'yi TUTUYORUZ (online mode devam ediyor)
+    });
+  }
+
+  // Firebase'den real-time güncellemeleri dinle
+  void _listenToGameUpdates(String roomId, GameNotifier notifier) {
+    print('👂 [ONLINE] Firebase stream dinleniyor... Room: $roomId');
+    
+    // Önceki stream varsa iptal et
+    _gameStateSubscription?.cancel();
+    
+    _gameStateSubscription = LobbyService().listenToGame(roomId).listen((newState) {
+      if (newState != null && mounted) {
+        print('📥 [ONLINE] Yeni state geldi! Phase: ${newState.phase}, Players: ${newState.players.length}');
+        // Firebase'den gelen state'i direkt uygula
+        // Bu sayede host'un başlattığı oyunu herkes görür
+        notifier.state = newState;
+      } else {
+        print('⚠️ [ONLINE] State null veya widget unmounted');
+      }
+    }, onError: (error) {
+      print('❌ [ONLINE] Stream hatası: $error');
     });
   }
 
@@ -1018,8 +1241,29 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     ).animate().fadeIn();
   }
 
+  // Online modda: Her oyuncu kendi kartlarını görür (ID bazlı - ASLA DEĞİŞMEZ)
+  // Pass & Play modda: Sıradaki oyuncu gösterilir
+  Player getCurrentPlayer(GameState gameState) {
+    if (_gameStarted && _currentRoomId != null && _myPlayerId != null) {
+      // Online mode: Kendi ID'mize göre oyuncuyu bul
+      final myPlayer = gameState.players.firstWhere(
+        (p) => p.id == _myPlayerId,
+        orElse: () {
+          print('❌ [ERROR] Oyuncu bulunamadı! _myPlayerId: $_myPlayerId');
+          print('📋 [DEBUG] Mevcut oyuncular: ${gameState.players.map((p) => '${p.name}(${p.id})').join(', ')}');
+          return gameState.players.first;
+        },
+      );
+      print('✅ [PLAYER] Benim oyuncum: ${myPlayer.name} (ID: ${myPlayer.id})');
+      return myPlayer;
+    }
+    // Pass & Play mode: Sıradaki oyuncu
+    return gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
+  }
+
   Widget _buildGameUI(BuildContext context, GameState gameState, GameNotifier notifier) {
-    final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
+    final currentPlayer = getCurrentPlayer(gameState);
+    print('🔍 [DEBUG] Current Player: ${currentPlayer.name} (ID: ${currentPlayer.id}), Sıradaki: ${gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId).name}');
     
     return SingleChildScrollView(
       child: ConstrainedBox(
@@ -1335,9 +1579,25 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               const SizedBox(height: 16),
 
               // Controls
-              if (gameState.phase == GamePhase.actionDeclaration)
-                currentPlayer.coins >= 10 
-                ? Column(
+              if (gameState.phase == GamePhase.actionDeclaration) ...[
+                // Online modda sadece sırası olan oyuncu hamle yapabilir
+                if (_currentRoomId != null && gameState.currentPlayerId != currentPlayer.id)
+                  Center(
+                    child: Column(
+                      children: [
+                        const Icon(Icons.hourglass_empty, size: 48, color: Colors.white54),
+                        const SizedBox(height: 16),
+                        Text(
+                          "${gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId).name} hamle yapıyor...",
+                          style: const TextStyle(color: Colors.white70, fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  currentPlayer.coins >= 10 
+                  ? Column(
                     children: [
                        Text("10 ALTININ VAR! SALDIRMAK ZORUNDASIN!", 
                             style: AppTheme.chip.copyWith(color: AppTheme.danger, fontWeight: FontWeight.bold)),
@@ -1443,6 +1703,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     ],
                   ),
                 ),
+              ],
                 
                if (gameState.phase == GamePhase.actionPending || gameState.phase == GamePhase.blockingWindow)
                  _buildActionPendingUI(gameState, notifier)
