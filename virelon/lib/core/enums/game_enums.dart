@@ -5,6 +5,8 @@ enum GameCardTheme {
   classic,    // Klasik (Varsayılan)
   pixelart,   // Pixel Art
   neonnoir,   // Neon Noir
+  origami,    // Origami
+  linocutart, // Linocut Art
 }
 
 extension GameCardThemeX on GameCardTheme {
@@ -13,6 +15,8 @@ extension GameCardThemeX on GameCardTheme {
       case GameCardTheme.classic: return 'Klasik';
       case GameCardTheme.pixelart: return 'Pixel Art';
       case GameCardTheme.neonnoir: return 'Neon Noir';
+      case GameCardTheme.origami: return 'Origami';
+      case GameCardTheme.linocutart: return 'Linocut Art';
     }
   }
 
@@ -21,6 +25,8 @@ extension GameCardThemeX on GameCardTheme {
       case GameCardTheme.classic: return 'cards';
       case GameCardTheme.pixelart: return 'pixelart';
       case GameCardTheme.neonnoir: return 'Neon Noir';
+      case GameCardTheme.origami: return 'Origami';
+      case GameCardTheme.linocutart: return 'linocutart';
     }
   }
 
@@ -29,6 +35,8 @@ extension GameCardThemeX on GameCardTheme {
       case GameCardTheme.classic: return Colors.amber;
       case GameCardTheme.pixelart: return Colors.cyan;
       case GameCardTheme.neonnoir: return Colors.pinkAccent;
+      case GameCardTheme.origami: return Colors.teal;
+      case GameCardTheme.linocutart: return Colors.brown;
     }
   }
   
@@ -37,6 +45,8 @@ extension GameCardThemeX on GameCardTheme {
       case GameCardTheme.classic: return Icons.style;
       case GameCardTheme.pixelart: return Icons.grid_4x4;
       case GameCardTheme.neonnoir: return Icons.nightlight;
+      case GameCardTheme.origami: return Icons.filter_vintage;
+      case GameCardTheme.linocutart: return Icons.brush;
     }
   }
 }
