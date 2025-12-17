@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:virelon/core/enums/game_enums.dart';
 import 'package:virelon/core/theme/app_theme.dart';
 import 'package:virelon/core/widgets/glass_container.dart';
+import 'package:virelon/core/providers/theme_provider.dart';
 
-class GameCardWidget extends StatelessWidget {
+class GameCardWidget extends ConsumerWidget {
   final Character character;
   final bool isRevealed;
   final double width;
@@ -22,7 +24,10 @@ class GameCardWidget extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Tema provider'dan oku
+    final cardTheme = ref.watch(cardThemeProvider);
+    
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -35,7 +40,7 @@ class GameCardWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               // BoxShadow removed as per user request to remove "phosphorescent" glow
             ),
-            child: isRevealed ? _buildRevealed() : _buildHidden(),
+            child: isRevealed ? _buildRevealed(cardTheme) : _buildHidden(),
           ),
           if (showAbilities && isRevealed) ...[
             const SizedBox(height: 6),
@@ -70,9 +75,10 @@ class GameCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildRevealed() {
+  Widget _buildRevealed(GameCardTheme cardTheme) {
     final color = _getColor(character);
-    final assetPath = 'assets/images/cards/${character.name}.png';
+    // Tema klasörüne göre asset path
+    final assetPath = 'assets/images/${cardTheme.folderName}/${character.name}.png';
 
     return GlassContainer(
       padding: EdgeInsets.zero,

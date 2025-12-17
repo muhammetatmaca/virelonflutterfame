@@ -1,5 +1,46 @@
 import 'package:flutter/material.dart';
 
+// Kart Tema Seçimi
+enum GameCardTheme {
+  classic,    // Klasik (Varsayılan)
+  pixelart,   // Pixel Art
+  neonnoir,   // Neon Noir
+}
+
+extension GameCardThemeX on GameCardTheme {
+  String get displayName {
+    switch (this) {
+      case GameCardTheme.classic: return 'Klasik';
+      case GameCardTheme.pixelart: return 'Pixel Art';
+      case GameCardTheme.neonnoir: return 'Neon Noir';
+    }
+  }
+
+  String get folderName {
+    switch (this) {
+      case GameCardTheme.classic: return 'cards';
+      case GameCardTheme.pixelart: return 'pixelart';
+      case GameCardTheme.neonnoir: return 'Neon Noir';
+    }
+  }
+
+  Color get accentColor {
+    switch (this) {
+      case GameCardTheme.classic: return Colors.amber;
+      case GameCardTheme.pixelart: return Colors.cyan;
+      case GameCardTheme.neonnoir: return Colors.pinkAccent;
+    }
+  }
+  
+  IconData get icon {
+    switch (this) {
+      case GameCardTheme.classic: return Icons.style;
+      case GameCardTheme.pixelart: return Icons.grid_4x4;
+      case GameCardTheme.neonnoir: return Icons.nightlight;
+    }
+  }
+}
+
 enum Character {
   duke,       // Dük
   assassin,   // Suikastçı

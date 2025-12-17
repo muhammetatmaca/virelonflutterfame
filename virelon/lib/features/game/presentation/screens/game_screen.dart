@@ -8,6 +8,7 @@ import 'package:virelon/core/enums/game_enums.dart';
 import 'package:virelon/core/theme/app_theme.dart';
 import 'package:virelon/core/widgets/glass_container.dart';
 import 'package:virelon/core/widgets/neon_button.dart';
+import 'package:virelon/core/providers/theme_provider.dart';
 import 'package:virelon/features/game/domain/models/game_state_model.dart';
 import '../providers/game_provider.dart';
 import '../widgets/game_card.dart';
@@ -533,9 +534,120 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               setState(() => _isOnlineMode = true);
             },
           ),
+          const SizedBox(height: 24),
+          
+          // Tema Seçme Butonu
+          GestureDetector(
+            onTap: () => _showThemeSelector(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.palette, color: AppTheme.accent, size: 20),
+                  const SizedBox(width: 8),
+                  const Text("KART TEMASI SEÇ", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const Spacer(),
+                  const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.2);
+  }
+
+  void _showThemeSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text("KART TEMASI SEÇ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text("Kartların görünümünü değiştir", style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 24),
+            
+            Consumer(
+              builder: (context, ref, child) {
+                final selectedTheme = ref.watch(cardThemeProvider);
+                
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: GameCardTheme.values.map((theme) {
+                    final isSelected = theme == selectedTheme;
+                    return GestureDetector(
+                      onTap: () {
+                        ref.read(cardThemeProvider.notifier).setTheme(theme);
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: theme.accentColor,
+                            content: Text("${theme.displayName} teması seçildi!"),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 100,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? theme.accentColor.withOpacity(0.3) : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? theme.accentColor : Colors.white24,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(theme.icon, color: theme.accentColor, size: 28),
+                            const SizedBox(height: 8),
+                            Text(
+                              theme.displayName,
+                              style: TextStyle(
+                                color: isSelected ? theme.accentColor : Colors.white70,
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
   }
 
   // === ONLINE MULTIPLAYER ===
