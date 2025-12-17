@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:virelon/core/enums/game_enums.dart';
 import 'package:virelon/core/theme/app_theme.dart';
 import 'package:virelon/core/widgets/glass_container.dart';
@@ -45,18 +44,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _isJoining = false; // Çift tıklama önleme
   StreamSubscription<GameState?>? _gameStateSubscription; // Stream kontrolü için
   bool _gameStarted = false; // Oyun başladı mı? (online mode için)
-  bool _rolesSkipped = false; // assigningRoles atlandı mı?
-  bool _turnTransitionSkipped = false; // turnTransition atlandı mı?
-  String? _myPlayerId; // Online modda benim oyuncu ID'm
-  String? _sessionId; // Bu oyun oturumu için benzersiz ID
-  bool _onlinePlusMode = false; // Online modda Plus Mode aktif mi?
-  int? _myPlayerIndex; // Oyuncu numarası (0, 1, 2, 3...)
-  
-  // Online Response Timer
-  Timer? _responseTimer;
-  int _responseCountdown = 10; // 10 saniye geri sayım
-  bool _canPassAction = false; // Timer bitene kadar false
-  bool _hasResponded = false; // Bu oyuncu karar verdi mi?
   
   // Phase States
   List<int> _exchangeSelectedIndices = []; // Index bazlı seçim
@@ -85,75 +72,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMyPlayerId(); // Kaydedilmiş ID'yi yükle
     // Load Ads
     _loadBannerAd();
     _loadRewardedAd();
     _loadAppOpenAd();
-  }
-
-  Future<void> _loadMyPlayerId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedId = prefs.getString('my_player_id');
-    if (savedId != null) {
-      setState(() {
-        _myPlayerId = savedId;
-      });
-      print('💾 [STORAGE] Kaydedilmiş ID yüklendi: $savedId');
-    }
-  }
-
-  Future<void> _saveMyPlayerId(String playerId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('my_player_id', playerId);
-    print('💾 [STORAGE] ID kaydedildi: $playerId');
-  }
-
-  Future<void> _loadOrCreateSessionId(String roomId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'session_${roomId}_${_myPlayerId}';
-    String? savedSessionId = prefs.getString(key);
-    
-    if (savedSessionId == null) {
-      // Yeni session ID oluştur
-      savedSessionId = '${_myPlayerId}_${DateTime.now().millisecondsSinceEpoch}';
-      await prefs.setString(key, savedSessionId);
-      print('🆔 [SESSION] Yeni session ID oluşturuldu: $savedSessionId');
-    } else {
-      print('🆔 [SESSION] Kaydedilmiş session ID yüklendi: $savedSessionId');
-    }
-    
-    setState(() {
-      _sessionId = savedSessionId;
-    });
-  }
-
-  void _startResponseTimer() {
-    _responseTimer?.cancel();
-    _responseCountdown = 10;
-    _canPassAction = false;
-    _hasResponded = false; // Yeni tur, yeni karar
-    
-    _responseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _responseCountdown--;
-          if (_responseCountdown <= 0) {
-            _canPassAction = true;
-            timer.cancel();
-          }
-        });
-      } else {
-        timer.cancel();
-      }
-    });
-  }
-
-  void _stopResponseTimer() {
-    _responseTimer?.cancel();
-    _responseTimer = null;
-    _responseCountdown = 10;
-    _canPassAction = false;
   }
 
   @override
@@ -162,7 +84,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _roomCodeController.dispose();
     _playerListScrollController.dispose();
     _gameStateSubscription?.cancel();
-    _responseTimer?.cancel();
     _bannerAd?.dispose();
     _rewardedAd?.dispose();
     _appOpenAd?.dispose();
@@ -345,70 +266,29 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 builder: (context) {
                   if (gameState.players.isEmpty) return _buildMenuFlow(context, notifier);
                   
-                  // Online modda rol görme ve turn transition atla (sadece oyun başladıysa)
-                  final isOnlineGame = _gameStarted && _currentRoomId != null;
+                  // Online modda rol görme ve turn transition atla
+                  final isOnlineMode = _currentRoomId != null;
                   
                   if (gameState.phase == GamePhase.assigningRoles) {
-                    if (isOnlineGame) {
-                      // Online modda TÜM oyuncular için rolleri onayla (SADECE BİR KERE)
-                      if (!_rolesSkipped) {
-                        _rolesSkipped = true;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            print('⏭️ [ONLINE] Tüm oyuncular için roller onaylanıyor...');
-                            // Tüm oyuncuları sırayla onayla
-                            for (var player in gameState.players) {
-                              notifier.confirmRoleSeen(player.id);
-                            }
-                          }
-                        });
-                      }
-                      // Online modda ROL GÖRME UI'I HİÇ GÖSTERİLMEZ
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 16),
-                            Text("Oyun hazırlanıyor...", style: TextStyle(color: Colors.white)),
-                          ],
-                        ),
-                      );
+                    if (isOnlineMode) {
+                      // Online modda direkt oyuna geç
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) notifier.confirmRoleSeen(gameState.currentPlayerId ?? '');
+                      });
+                      return const Center(child: CircularProgressIndicator());
                     }
-                    // Pass & Play modda normal UI göster
                     return _buildRoleDistributionUI(gameState, notifier);
                   }
                   
                   if (gameState.phase == GamePhase.turnTransition) {
-                    if (isOnlineGame && !_turnTransitionSkipped) {
-                      // Online modda direkt tura başla (SADECE BİR KERE)
-                      _turnTransitionSkipped = true;
+                    if (isOnlineMode) {
+                      // Online modda direkt tura başla
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          print('⏭️ [ONLINE] turnTransition atlanıyor...');
-                          notifier.readyForTurn();
-                        }
+                        if (mounted) notifier.readyForTurn();
                       });
                       return const Center(child: CircularProgressIndicator());
                     }
-                    // Her yeni tur için flag'i sıfırla
-                    if (gameState.phase != GamePhase.turnTransition) {
-                      _turnTransitionSkipped = false;
-                    }
                     return _buildTurnTransitionUI(gameState, notifier);
-                  }
-                  
-                  // Online modda "telefonu ver" ekranlarını atla
-                  if (isOnlineGame) {
-                    if (gameState.phase == GamePhase.victimHandover) {
-                      // Victim kart seçimi direkt gösterilsin
-                      return _buildVictimHandoverUI(gameState, notifier);
-                    }
-                    if (gameState.phase == GamePhase.investigationHandover || 
-                        gameState.phase == GamePhase.investigationReturn) {
-                      // Investigation handover atla, direkt kart seçimine geç
-                      return const Center(child: CircularProgressIndicator());
-                    }
                   }
                   
                   if (gameState.phase == GamePhase.actionPending) return _buildActionPendingUI(gameState, notifier);
@@ -564,87 +444,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _showThemeSelector(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text("KART TEMASI SEÇ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text("Kartların görünümünü değiştir", style: TextStyle(color: Colors.white54, fontSize: 12)),
-            const SizedBox(height: 24),
-            
-            Consumer(
-              builder: (context, ref, child) {
-                final selectedTheme = ref.watch(cardThemeProvider);
-                
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: GameCardTheme.values.map((theme) {
-                    final isSelected = theme == selectedTheme;
-                    return GestureDetector(
-                      onTap: () {
-                        ref.read(cardThemeProvider.notifier).setTheme(theme);
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: theme.accentColor,
-                            content: Text("${theme.displayName} teması seçildi!"),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 100,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? theme.accentColor.withOpacity(0.3) : Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected ? theme.accentColor : Colors.white24,
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(theme.icon, color: theme.accentColor, size: 28),
-                            const SizedBox(height: 8),
-                            Text(
-                              theme.displayName,
-                              style: TextStyle(
-                                color: isSelected ? theme.accentColor : Colors.white70,
-                                fontSize: 11,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-            
-            const SizedBox(height: 24),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _ThemeSelectorScreen(
+          onThemeSelected: (theme) {
+            ref.read(cardThemeProvider.notifier).setTheme(theme);
+            Navigator.pop(context);
+          },
         ),
       ),
     );
@@ -666,40 +473,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           // Oyun başladıysa (phase artık setup değil), otomatik geçiş yap
           if (gameState.phase != GamePhase.setup) {
             // Online mode'u aktif et
-            WidgetsBinding.instance.addPostFrameCallback((_) async {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 final notifier = ref.read(gameStateProvider.notifier);
                 notifier.setRoomId(_currentRoomId);
                 _listenToGameUpdates(_currentRoomId!, notifier);
-                
-                // _myPlayerId'yi kontrol et ve kaydet
-                if (_myPlayerId == null) {
-                  // SharedPreferences'tan yükle
-                  final prefs = await SharedPreferences.getInstance();
-                  final savedId = prefs.getString('my_player_id');
-                  if (savedId != null) {
-                    _myPlayerId = savedId;
-                    print('💾 [LOBBY] ID SharedPreferences\'tan yüklendi: $savedId');
-                  }
-                }
-                
-                print('🎮 [LOBBY] Oyun başlıyor! _myPlayerId: $_myPlayerId');
-                
-                // Plus Mode bilgisini gameState'ten al
-                // Oyuncuların ideolojisi varsa Plus Mode aktif demektir
-                final hasIdeology = gameState.players.any((p) => p.ideology != null);
-                
-                setState(() {
-                  _isOnlineMode = false;
-                  _gameStarted = true; // OYUN BAŞLADI!
-                  
-                  // Plus Mode kontrolü
-                  if (hasIdeology) {
-                    _isPlusMode = true;
-                    _onlinePlusMode = true;
-                    print('✨ [PLUS] Plus Mode aktif (ideoloji tespit edildi)');
-                  }
-                });
+                setState(() => _isOnlineMode = false);
               }
             });
             return const Center(
@@ -764,175 +543,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
-                // Plus Mode Switch (Sadece Host görür)
-                if (isHost) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: _onlinePlusMode ? Colors.purple.withOpacity(0.2) : Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _onlinePlusMode ? Colors.purple : Colors.white24),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.auto_awesome,
-                              color: _onlinePlusMode ? Colors.purple : Colors.white54,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "PLUS MOD",
-                              style: TextStyle(
-                                color: _onlinePlusMode ? Colors.purple : Colors.white70,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Switch(
-                          value: _onlinePlusMode,
-                          onChanged: (value) => setState(() => _onlinePlusMode = value),
-                          activeColor: Colors.purple,
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Plus Mode Seçenekleri (Açıksa)
-                  if (_onlinePlusMode) ...[
-                    const SizedBox(height: 12),
-                    const Text("ÖZEL KARAKTER SEÇİMİ", style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _plusModeSpecial = Character.avukat),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _plusModeSpecial == Character.avukat ? Character.avukat.color.withOpacity(0.4) : Colors.transparent,
-                                border: Border.all(color: _plusModeSpecial == Character.avukat ? Character.avukat.color : Colors.white24),
-                                borderRadius: BorderRadius.circular(8)
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Character.avukat.icon, color: Colors.white, size: 18),
-                                  const SizedBox(height: 2),
-                                  const Text("AVUKAT", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                ]
-                              )
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _plusModeSpecial = Character.countess),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _plusModeSpecial == Character.countess ? Character.countess.color.withOpacity(0.4) : Colors.transparent,
-                                border: Border.all(color: _plusModeSpecial == Character.countess ? Character.countess.color : Colors.white24),
-                                borderRadius: BorderRadius.circular(8)
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Character.countess.icon, color: Colors.white, size: 18),
-                                  const SizedBox(height: 2),
-                                  const Text("KONTES", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                ]
-                              )
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    const Text("VARIANT SEÇİMİ (ELÇİ YERİNE)", style: TextStyle(color: Colors.white54, fontSize: 10)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _plusModeVariant2 = Character.ambassador),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _plusModeVariant2 == Character.ambassador ? Character.ambassador.color.withOpacity(0.4) : Colors.transparent,
-                                border: Border.all(color: _plusModeVariant2 == Character.ambassador ? Character.ambassador.color : Colors.white24),
-                                borderRadius: BorderRadius.circular(8)
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Character.ambassador.icon, color: Colors.white, size: 16),
-                                  const SizedBox(height: 2),
-                                  const Text("ELÇİ", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                ]
-                              )
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _plusModeVariant2 = Character.inquisitor),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _plusModeVariant2 == Character.inquisitor ? Character.inquisitor.color.withOpacity(0.4) : Colors.transparent,
-                                border: Border.all(color: _plusModeVariant2 == Character.inquisitor ? Character.inquisitor.color : Colors.white24),
-                                borderRadius: BorderRadius.circular(8)
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Character.inquisitor.icon, color: Colors.white, size: 16),
-                                  const SizedBox(height: 2),
-                                  const Text("ENGİZ.", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                ]
-                              )
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _plusModeVariant2 = Character.gazeteci),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _plusModeVariant2 == Character.gazeteci ? Character.gazeteci.color.withOpacity(0.4) : Colors.transparent,
-                                border: Border.all(color: _plusModeVariant2 == Character.gazeteci ? Character.gazeteci.color : Colors.white24),
-                                borderRadius: BorderRadius.circular(8)
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Character.gazeteci.icon, color: Colors.white, size: 16),
-                                  const SizedBox(height: 2),
-                                  const Text("GAZETECİ", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                ]
-                              )
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      "İdeolojiler, Kara Para ve özel karakterler aktif!",
-                      style: TextStyle(color: Colors.purple, fontSize: 10),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                ],
-                
                 if (isHost && gameState.players.length >= 3) ...[
                   NeonButton(
                     label: "OYUNU BAŞLAT",
@@ -1054,9 +664,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     setState(() => _isJoining = true);
 
-    final playerId = DateTime.now().millisecondsSinceEpoch.toString();
     final me = Player(
-      id: playerId,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       isAlive: true,
       coins: 2,
@@ -1068,14 +677,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (mounted) {
         setState(() {
           _currentRoomId = roomId;
-          _myPlayerId = playerId; // ID'yi kaydet!
           _isJoining = false;
         });
-        // SharedPreferences'a kaydet
-        await _saveMyPlayerId(playerId);
-        // Session ID oluştur/yükle
-        await _loadOrCreateSessionId(roomId);
-        print('💾 [STORAGE] Oyuncu ID kaydediliyor: $playerId');
       }
     } catch (e) {
       if (mounted) {
@@ -1105,9 +708,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     setState(() => _isJoining = true);
 
-    final playerId = DateTime.now().millisecondsSinceEpoch.toString();
     final me = Player(
-      id: playerId,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       isAlive: true,
       coins: 2,
@@ -1119,13 +721,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (mounted) {
         setState(() {
           _currentRoomId = code;
-          _myPlayerId = playerId; // ID'yi kaydet!
           _isJoining = false;
         });
-        // SharedPreferences'a kaydet
-        await _saveMyPlayerId(playerId);
-        // Session ID oluştur/yükle
-        await _loadOrCreateSessionId(code);
       }
     } catch (e) {
       if (mounted) {
@@ -1138,19 +735,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Future<void> _startOnlineGame(GameNotifier notifier, GameState currentState) async {
     if (_currentRoomId == null) return;
 
-    print('🎮 [ONLINE] Oyun başlatılıyor... Room: $_currentRoomId, PlusMode: $_onlinePlusMode, Special: $_plusModeSpecial, Variant: $_plusModeVariant2');
+    print('🎮 [ONLINE] Oyun başlatılıyor... Room: $_currentRoomId');
 
     // Online mode'u aktif et (tüm oyuncular için)
     notifier.setRoomId(_currentRoomId);
 
     // SADECE HOST oyunu başlatır ve Firebase'e gönderir
-    // Plus Mode seçimine göre oyunu başlat
-    final initialState = ref.read(gameEngineProvider).initializeGame(
-      currentState.players,
-      isPlusMode: _onlinePlusMode,
-      plusSpecial: _onlinePlusMode ? _plusModeSpecial : null,
-      plusVariant2: _onlinePlusMode ? _plusModeVariant2 : null,
-    );
+    final initialState = ref.read(gameEngineProvider).initializeGame(currentState.players);
     print('🎮 [ONLINE] Initial state oluşturuldu. Phase: ${initialState.phase}');
     
     try {
@@ -1163,24 +754,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Firebase'den güncellemeleri dinle (tüm oyuncular için)
     _listenToGameUpdates(_currentRoomId!, notifier);
     
-    // Benim oyuncu index'imi bul ve kaydet
-    final myIndex = currentState.players.indexWhere((p) => p.id == _myPlayerId);
-    if (myIndex != -1) {
-      setState(() {
-        _myPlayerIndex = myIndex;
-      });
-      // SharedPreferences'a kaydet
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('player_index_$_currentRoomId', myIndex);
-      print('🔢 [INDEX] Oyuncu numarası: ${myIndex + 1} (Index: $myIndex)');
-    }
-    
     // Lobiden çık, oyuna geç
     setState(() {
       _isOnlineMode = false;
-      _gameStarted = true; // Oyun başladı!
-      _isPlusMode = _onlinePlusMode; // Plus mode aktif mi?
-      // _plusModeSpecial ve _plusModeVariant2 zaten seçilmiş, değiştirme
       // _currentRoomId'yi TUTUYORUZ (online mode devam ediyor)
     });
   }
@@ -1192,31 +768,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Önceki stream varsa iptal et
     _gameStateSubscription?.cancel();
     
-    GamePhase? _lastPhase; // Önceki phase'i takip et
-    
     _gameStateSubscription = LobbyService().listenToGame(roomId).listen((newState) {
       if (newState != null && mounted) {
         print('📥 [ONLINE] Yeni state geldi! Phase: ${newState.phase}, Players: ${newState.players.length}');
-        
-        // Phase değişti mi kontrol et
-        if (_lastPhase != newState.phase) {
-          print('🔄 [PHASE] Phase değişti: $_lastPhase -> ${newState.phase}');
-          
-          // ActionPending phase'ine girildiyse timer'ı resetle
-          if (newState.phase == GamePhase.actionPending) {
-            _stopResponseTimer();
-            _canPassAction = false;
-            _hasResponded = false;
-            print('⏱️ [TIMER] Timer resetlendi (yeni actionPending)');
-          } else if (newState.phase != GamePhase.actionPending && newState.phase != GamePhase.blockingWindow) {
-            // Diğer phase'lere geçildiğinde timer'ı durdur
-            _stopResponseTimer();
-          }
-          
-          _lastPhase = newState.phase;
-        }
-        
         // Firebase'den gelen state'i direkt uygula
+        // Bu sayede host'un başlattığı oyunu herkes görür
         notifier.state = newState;
       } else {
         print('⚠️ [ONLINE] State null veya widget unmounted');
@@ -1597,29 +1153,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     ).animate().fadeIn();
   }
 
-  // Online modda: Her oyuncu kendi kartlarını görür (ID bazlı - ASLA DEĞİŞMEZ)
-  // Pass & Play modda: Sıradaki oyuncu gösterilir
-  Player getCurrentPlayer(GameState gameState) {
-    if (_gameStarted && _currentRoomId != null && _myPlayerId != null) {
-      // Online mode: Kendi ID'mize göre oyuncuyu bul
-      final myPlayer = gameState.players.firstWhere(
-        (p) => p.id == _myPlayerId,
-        orElse: () {
-          print('❌ [ERROR] Oyuncu bulunamadı! _myPlayerId: $_myPlayerId');
-          print('📋 [DEBUG] Mevcut oyuncular: ${gameState.players.map((p) => '${p.name}(${p.id})').join(', ')}');
-          return gameState.players.first;
-        },
-      );
-      print('✅ [PLAYER] Benim oyuncum: ${myPlayer.name} (ID: ${myPlayer.id})');
-      return myPlayer;
-    }
-    // Pass & Play mode: Sıradaki oyuncu
-    return gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
-  }
-
   Widget _buildGameUI(BuildContext context, GameState gameState, GameNotifier notifier) {
-    final currentPlayer = getCurrentPlayer(gameState);
-    print('🔍 [DEBUG] Current Player: ${currentPlayer.name} (ID: ${currentPlayer.id}), Sıradaki: ${gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId).name}');
+    final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
     
     return SingleChildScrollView(
       child: ConstrainedBox(
@@ -2136,46 +1671,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final claimedChar = state.claimedCharacter;
     final isEmbezzle = state.currentAction == GameAction.embezzle;
     
-    // Online modda: Sadece challenged kişi kartlarını görmeli
-    final currentUser = getCurrentPlayer(state);
-    final isMe = currentUser.id == challengedId;
-    
-    // Online modda diğer oyuncular için bekleme ekranı
-    if (_gameStarted && _currentRoomId != null && !isMe) {
-      return Center(
-        child: GlassContainer(
-          padding: const EdgeInsets.all(32),
-          borderColor: AppTheme.warning,
-          isGlowing: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.gavel, size: 60, color: AppTheme.warning)
-                  .animate(onPlay: (c) => c.repeat())
-                  .shake(duration: 1.seconds),
-              const SizedBox(height: 24),
-              Text(
-                "MEYDAN OKUMA!",
-                style: AppTheme.headline.copyWith(color: AppTheme.warning, fontSize: 22),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "${challenged.name} kartlarını ispatlıyor...",
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(color: AppTheme.warning),
-              const SizedBox(height: 16),
-              const Text(
-                "Sonuç bekleniyor...",
-                style: TextStyle(color: Colors.white54),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
     return Center(
       child: SingleChildScrollView(
         child: Padding(
@@ -2585,13 +2080,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     if (state.actionInitiatorId == null) return const SizedBox.shrink();
 
     final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId);
+    // UI'ı gösteren kişinin ID'si (Genelde sıradaki oyuncu ama burada tepki veren kişi olmalı)
+    // Şimdilik currentPlayer'ı alıyoruz ama logic olarak hatalı olabilir Pass&Play'de.
+    // Ancak Single Device olduğu için ekranı o an elinde tutan kişi "Current" kabul edilir.
+    // VE bloklama hakkı sadece ilgili kişiye gösterilmeli.
+    final currentUser = state.players.firstWhere((p) => p.id == ref.read(gameStateProvider).currentPlayerId); // Aslında bu state.currentPlayerId değil, cihazın sahibi.
     
-    // Online modda: Ekrandaki kullanıcı _myPlayerId ile belirlenir
-    // Pass & Play modda: Sıradaki oyuncu
-    final currentUser = getCurrentPlayer(state);
+    // Doğru mantık: PassAndPlay'de actionPending ekranı geldiğinde cihazı hedef kişiye vermeli mi?
+    // Veya herkes sırayla bakmalı mı?
+    // Basitlik için: Hedef kişi kimse (actionTargetId) butonları o görür. Diğerleri sadece "Bekleyin" görür.
+    // VEYA: Herkes her şeyi görür (Açık Masa).
     
-    // Hedef oyuncu mu? (Steal/Assassinate için)
-    final isTarget = state.actionTargetId == currentUser.id;
+    final isTarget = state.actionTargetId == currentUser.id; // Hedef oyuncu mu? (Steal/Assassinate için)
 
     List<Widget> blockButtons = [];
     
@@ -2708,73 +2208,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                        style: TextStyle(color: Colors.white70)),
                    const SizedBox(height: 24),
                    
-                   // Online modda: Sadece bekle, oyuncuları gösterme
-                   if (_gameStarted && _currentRoomId != null) ...[
-                     // Timer başlat (ilk kez)
-                     Builder(builder: (context) {
-                       if (_responseTimer == null || !_responseTimer!.isActive) {
-                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                           if (mounted && _responseTimer == null) {
-                             _startResponseTimer();
-                           }
-                         });
-                       }
-                       return const SizedBox.shrink();
-                     }),
-                     
-                     // Geri sayım göster
-                     if (_responseCountdown > 0) ...[
-                       Stack(
-                         alignment: Alignment.center,
-                         children: [
-                           SizedBox(
-                             width: 80,
-                             height: 80,
-                             child: CircularProgressIndicator(
-                               value: _responseCountdown / 10,
-                               strokeWidth: 6,
-                               color: _responseCountdown > 3 ? AppTheme.accent : AppTheme.danger,
-                               backgroundColor: Colors.white12,
-                             ),
-                           ),
-                           Text(
-                             "$_responseCountdown",
-                             style: TextStyle(
-                               color: _responseCountdown > 3 ? Colors.white : AppTheme.danger,
-                               fontSize: 28,
-                               fontWeight: FontWeight.bold,
-                             ),
-                           ),
-                         ],
-                       ),
-                       const SizedBox(height: 16),
-                       const Text("Diğer oyuncuların kararı bekleniyor...", 
-                           style: TextStyle(color: Colors.white54)),
-                     ] else ...[
-                       const Icon(Icons.check_circle, size: 60, color: AppTheme.success),
-                       const SizedBox(height: 16),
-                       const Text("Süre doldu!", style: TextStyle(color: AppTheme.success)),
-                     ],
-                     
-                     const SizedBox(height: 24),
-                     NeonButton(
-                       label: _canPassAction ? "KİMSE İTİRAZ ETMİYOR" : "BEKLE (${_responseCountdown}s)",
-                       icon: Icons.check_circle,
-                       baseColor: _canPassAction ? AppTheme.success : Colors.grey,
-                       isLarge: true,
-                       onTap: () {
-                         if (_canPassAction) {
-                           _stopResponseTimer();
-                           notifier.passAction();
-                         }
-                       },
-                     ),
-                   ]
-                   // Pass & Play modda: Oyuncu listesi
-                   else ...[
-                     // Oyuncu listesi
-                     Text("Oyuncular:", style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12)),
-                     const SizedBox(height: 12),
+                   // Oyuncu listesi
+                   Text("Oyuncular:", style: AppTheme.body.copyWith(color: Colors.white54, fontSize: 12)),
+                   const SizedBox(height: 12),
                    ...state.players.where((p) => p.id != initiator.id && p.isAlive).map((player) {
                      return Padding(
                        padding: const EdgeInsets.only(bottom: 8),
@@ -2857,7 +2293,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                      isLarge: true,
                      onTap: () => notifier.passAction(),
                    ),
-                   ], // Pass & Play bloğu kapanışı
                  ],
                )
              else 
@@ -2868,37 +2303,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                    const SizedBox(height: 8),
                    const Text("Bu hamleye nasıl tepki vermek istersin?", 
                        style: TextStyle(color: Colors.white70, fontSize: 14)),
-                   
-                   // Online modda timer göster
-                   if (_gameStarted && _currentRoomId != null) ...[
-                     const SizedBox(height: 16),
-                     // Timer başlat
-                     Builder(builder: (context) {
-                       if (_responseTimer == null || !_responseTimer!.isActive) {
-                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                           if (mounted && _responseTimer == null) {
-                             _startResponseTimer();
-                           }
-                         });
-                       }
-                       return const SizedBox.shrink();
-                     }),
-                     Row(
-                       mainAxisAlignment: MainAxisAlignment.center,
-                       children: [
-                         Icon(Icons.timer, color: _responseCountdown > 3 ? AppTheme.accent : AppTheme.danger, size: 20),
-                         const SizedBox(width: 8),
-                         Text(
-                           "Kalan süre: ${_responseCountdown}s",
-                           style: TextStyle(
-                             color: _responseCountdown > 3 ? Colors.white70 : AppTheme.danger,
-                             fontWeight: FontWeight.bold,
-                           ),
-                         ),
-                       ],
-                     ),
-                   ],
-                   
                    const SizedBox(height: 24),
                    ...blockButtons,
                    if (blockButtons.isNotEmpty) const SizedBox(height: 16),
@@ -2924,46 +2328,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                          ),
                        if (state.currentAction != GameAction.foreignAid && state.currentAction != GameAction.convertOther) const SizedBox(width: 16),
                        Expanded(
-                         child: _hasResponded 
-                           ? Container(
-                               padding: const EdgeInsets.symmetric(vertical: 16),
-                               decoration: BoxDecoration(
-                                 color: Colors.green.withOpacity(0.2),
-                                 borderRadius: BorderRadius.circular(12),
-                                 border: Border.all(color: Colors.green),
-                               ),
-                               child: const Center(
-                                 child: Row(
-                                   mainAxisAlignment: MainAxisAlignment.center,
-                                   children: [
-                                     Icon(Icons.check, color: Colors.green),
-                                     SizedBox(width: 8),
-                                     Text("İZİN VERDİM", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                                   ],
-                                 ),
-                               ),
-                             )
-                           : NeonButton(
-                               label: "İZİN VER",
-                               icon: Icons.check_circle,
-                               baseColor: AppTheme.success,
-                               onTap: () {
-                                 if (_gameStarted && _currentRoomId != null) {
-                                   // Online modda: Sadece kararımı kaydet, oyunu ilerletme
-                                   setState(() => _hasResponded = true);
-                                   ScaffoldMessenger.of(context).showSnackBar(
-                                     const SnackBar(
-                                       backgroundColor: Colors.green,
-                                       content: Text("Kararınız kaydedildi. Diğer oyuncular bekleniyor..."),
-                                       duration: Duration(seconds: 2),
-                                     ),
-                                   );
-                                 } else {
-                                   // Pass & Play modda: Normal davran
-                                   notifier.passAction(); 
-                                 }
-                               },
-                             ),
+                         child: NeonButton(
+                           label: "İZİN VER",
+                           icon: Icons.check_circle,
+                           baseColor: AppTheme.success,
+                           onTap: () {
+                             notifier.passAction(); 
+                           },
+                         ),
                        ),
                      ],
                    )
@@ -2976,14 +2348,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Resolution (Lose Card) UI ---
   Widget _buildResolutionUI(GameState state, GameNotifier notifier) {
-    // Challenge sonucu: Kurban ID'si farklı yerlerde olabilir
-    String? victimId = state.blockerId;
-    
-    // Eğer blockerId yoksa ve challengerId varsa, challenger kaybetmiş demektir
-    if (victimId == null && state.challengerId != null) {
-      victimId = state.actionTargetId;
-    }
-    
+    // Challenge sonucu: blockerId = kaybeden kişi
+    final victimId = state.blockerId;
     if (victimId == null) return const Center(child: Text("Hata: Kurban bulunamadı"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first); 
@@ -3022,7 +2388,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                      children: victim.cards.map((card) {
                        return GestureDetector(
                          onTap: () {
-                           notifier.loseCard(victimId!, card);
+                           notifier.loseCard(victimId, card);
                          },
                          child: Column(
                            children: [
@@ -3048,90 +2414,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Victim Handover UI (Telefonu kurbana ver) ---
   Widget _buildVictimHandoverUI(GameState state, GameNotifier notifier) {
-    // Challenge sonucu: Kurban ID'si farklı yerlerde olabilir
-    // 1. blockerId: Blokçu blöf yaparken yakalandı VEYA action initiator yakalandı
-    // 2. actionTargetId: Challenger (meydan okuyan) kaybetti
-    String? victimId = state.blockerId;
-    
-    // Eğer blockerId yoksa ve challengerId varsa, challenger kaybetmiş demektir
-    if (victimId == null && state.challengerId != null) {
-      // actionTargetId'de olabilir
-      victimId = state.actionTargetId;
-    }
-    
+    // Challenge sonucu: blockerId = kaybeden kişi
+    final victimId = state.blockerId;
     if (victimId == null) return const Center(child: Text("Hata: Kurban ID yok"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first);
     final isCoup = state.currentAction == GameAction.coup;
-    
-    // Online modda: Victim mi ben mi kontrol et
-    final currentUser = getCurrentPlayer(state);
-    final isMe = currentUser.id == victimId;
-    
-    // Online modda diğer oyuncular için bekleme ekranı
-    if (_gameStarted && _currentRoomId != null && !isMe) {
-      return Center(
-        child: GlassContainer(
-          padding: const EdgeInsets.all(32),
-          borderColor: AppTheme.danger,
-          isGlowing: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.dangerous, size: 60, color: AppTheme.danger)
-                  .animate(onPlay: (c) => c.repeat())
-                  .shake(duration: 1.seconds),
-              const SizedBox(height: 24),
-              Text(
-                isCoup ? "SALDIRI!" : "MEYDAN OKUMA SONUCU",
-                style: AppTheme.headline.copyWith(color: AppTheme.danger, fontSize: 20),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "${victim.name} kart kaybedecek...",
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(color: AppTheme.danger),
-              const SizedBox(height: 16),
-              const Text(
-                "Bekleniyor...",
-                style: TextStyle(color: Colors.white54),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    // Online modda victim için doğrudan kart seçme ekranına geç
-    if (_gameStarted && _currentRoomId != null && isMe) {
-      // Doğrudan readyForResolution çağır
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          notifier.readyForResolution();
-        }
-      });
-      return Center(
-        child: GlassContainer(
-          padding: const EdgeInsets.all(32),
-          borderColor: AppTheme.danger,
-          isGlowing: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.dangerous, size: 60, color: AppTheme.danger),
-              const SizedBox(height: 16),
-              const Text("Kart seçme ekranına geçiliyor...", style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 16),
-              const CircularProgressIndicator(color: AppTheme.danger),
-            ],
-          ),
-        ),
-      );
-    }
 
-    // Pass & Play modu: Normal telefonu ver ekranı
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -4739,6 +4028,348 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
             ).animate().fadeIn(duration: 500.ms).moveY(begin: 30, end: 0),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// === TEMA SEÇİCİ EKRANI ===
+class _ThemeSelectorScreen extends StatefulWidget {
+  final Function(GameCardTheme) onThemeSelected;
+
+  const _ThemeSelectorScreen({required this.onThemeSelected});
+
+  @override
+  State<_ThemeSelectorScreen> createState() => _ThemeSelectorScreenState();
+}
+
+class _ThemeSelectorScreenState extends State<_ThemeSelectorScreen> {
+  late PageController _pageController;
+  int _currentPage = 0;
+  
+  // Tüm karakterler (back dahil)
+  final List<String> _allCardNames = [
+    'back',      // Arka yüz ilk sırada
+    'duke',
+    'assassin',
+    'captain',
+    'countess',
+    'ambassador',
+    'inquisitor',
+    'avukat',
+    'gazeteci',
+  ];
+  
+  final List<String> _allCardDisplayNames = [
+    'Arka Yüz',
+    'Dük',
+    'Suikastçı',
+    'Yüzbaşı',
+    'Kontes',
+    'Elçi',
+    'Engizisyoncu',
+    'Avukat',
+    'Gazeteci',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.85);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A15),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "KART DESTELERİ",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // Tema indikatorları
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: GameCardTheme.values.asMap().entries.map((entry) {
+                final isActive = entry.key == _currentPage;
+                return GestureDetector(
+                  onTap: () => _pageController.animateToPage(
+                    entry.key,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    width: isActive ? 40 : 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isActive ? entry.value.accentColor : Colors.white24,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Tema PageView
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: GameCardTheme.values.length,
+                onPageChanged: (index) => setState(() => _currentPage = index),
+                itemBuilder: (context, themeIndex) {
+                  final theme = GameCardTheme.values[themeIndex];
+                  return _buildThemeCard(theme, themeIndex == _currentPage);
+                },
+              ),
+            ),
+            
+            // Seç butonu
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: GestureDetector(
+                onTap: () {
+                  widget.onThemeSelected(GameCardTheme.values[_currentPage]);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: GameCardTheme.values[_currentPage].accentColor,
+                      content: Text("${GameCardTheme.values[_currentPage].displayName} teması seçildi!"),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        GameCardTheme.values[_currentPage].accentColor,
+                        GameCardTheme.values[_currentPage].accentColor.withOpacity(0.7),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: GameCardTheme.values[_currentPage].accentColor.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        GameCardTheme.values[_currentPage].icon,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        "${GameCardTheme.values[_currentPage].displayName.toUpperCase()} SEÇ",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeCard(GameCardTheme theme, bool isActive) {
+    return AnimatedScale(
+      scale: isActive ? 1.0 : 0.9,
+      duration: const Duration(milliseconds: 200),
+      child: AnimatedOpacity(
+        opacity: isActive ? 1.0 : 0.5,
+        duration: const Duration(milliseconds: 200),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isActive ? theme.accentColor : Colors.white12,
+              width: 2,
+            ),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: theme.accentColor.withOpacity(0.3),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            children: [
+              // Tema başlığı
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.accentColor.withOpacity(0.3),
+                      Colors.transparent,
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(theme.icon, color: theme.accentColor, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      theme.displayName.toUpperCase(),
+                      style: TextStyle(
+                        color: theme.accentColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Kartları kaydır (back + karakterler)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _allCardNames.length,
+                    itemBuilder: (context, index) {
+                      final cardName = _allCardNames[index];
+                      final displayName = _allCardDisplayNames[index];
+                      final assetPath = 'assets/images/${theme.folderName}/$cardName.png';
+                      
+                      return Container(
+                        width: 120,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: theme.accentColor.withOpacity(0.5),
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: theme.accentColor.withOpacity(0.3),
+                                      blurRadius: 10,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.asset(
+                                    assetPath,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: theme.accentColor.withOpacity(0.2),
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.style,
+                                            color: theme.accentColor,
+                                            size: 40,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              
+              // Kaydırma ipucu
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.swipe, color: Colors.white24, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      "← Kartları kaydır →",
+                      style: TextStyle(color: Colors.white24, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
