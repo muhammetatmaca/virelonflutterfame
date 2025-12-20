@@ -385,7 +385,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           const SizedBox(height: 16),
           Text("VIRELON", style: AppTheme.titleLarge.copyWith(fontSize: 32)),
           const SizedBox(height: 8),
-          Text("PROTOCOL: COUP REFORMATION", style: AppTheme.body.copyWith(letterSpacing: 2, fontSize: 10, color: AppTheme.accent)),
+          Text("PROTOCOL", style: AppTheme.body.copyWith(letterSpacing: 2, fontSize: 10, color: AppTheme.accent)),
           const SizedBox(height: 32),
           
           NeonButton(
@@ -866,7 +866,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         children: [
                           if (!_isPlusMode) const Icon(Icons.play_circle_fill, color: Colors.amber, size: 20),
                           if (!_isPlusMode) const SizedBox(width: 6),
-                          Text(_isPlusMode ? "PLUS (ENTRİKA)" : "PLUS MODU", style: TextStyle(
+                          Text(_isPlusMode ? "PLUS" : "PLUS MODU", style: TextStyle(
                             color: _isPlusMode ? Colors.white : Colors.amber,
                             fontWeight: FontWeight.bold
                           )),

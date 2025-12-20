@@ -1076,6 +1076,19 @@ class GameEngine {
     // Bu durumda action iptal, resolveSuccess çağrılmamalı
     bool isActionInitiatorLost = victimId == current.actionInitiatorId;
     
+    // COUP için özel durum: Coup zaten uygulandı, resolveSuccess çağrılmamalı
+    // (blockerId hedef olarak kullanılıyor, bu yüzden bu bloğa girmemeli)
+    if (current.currentAction == GameAction.coup) {
+      return _nextTurn(newState.copyWith(
+        currentAction: null,
+        actionInitiatorId: null,
+        actionTargetId: null,
+        blockerId: null,
+        challengerId: null,
+        claimedCharacter: null
+      ));
+    }
+    
     if (current.currentAction != null && victimId == current.blockerId && !isActionInitiatorLost) {
       // Blocker kaybetti
       
