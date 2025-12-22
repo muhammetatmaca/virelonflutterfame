@@ -165,6 +165,7 @@ extension GameActionX on GameAction {
 
 enum GamePhase {
   setup,             // Oyun kurulumu (Pass & Play ekranı)
+  shuffling,         // Shuffle animasyonu (Online mode)
   assigningRoles,    // Roller dağıtılıyor (Shuffle animasyon + Sırayla gösterme)
   turnTransition,    // Cihazı devretme ekranı ("Sıra Ahmet'te")
   actionDeclaration, // Oyuncu hamle seçiyor

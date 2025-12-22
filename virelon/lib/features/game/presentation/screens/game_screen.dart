@@ -269,11 +269,41 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   // Online modda rol görme ve turn transition atla
                   final isOnlineMode = _currentRoomId != null;
                   
+                  // Online modda shuffle animasyonu göster
+                  if (gameState.phase == GamePhase.shuffling) {
+                    // Animasyon göster ve süre sonunda actionDeclaration'a geç
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && !_showShuffleAnimation) {
+                        setState(() => _showShuffleAnimation = true);
+                        
+                        // 5 saniye sonra animasyonu kapat ve oyuna başla
+                        Future.delayed(const Duration(seconds: 5), () {
+                          if (mounted) {
+                            setState(() => _showShuffleAnimation = false);
+                            // State'i actionDeclaration'a güncelle
+                            notifier.skipToActionDeclaration();
+                          }
+                        });
+                      }
+                    });
+                    return const Center(
+                      child: Text(
+                        "Kartlar Dağıtılıyor...",
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                      ),
+                    );
+                  }
+                  
                   if (gameState.phase == GamePhase.assigningRoles) {
                     if (isOnlineMode) {
-                      // Online modda direkt oyuna geç
+                      // Online modda herkes kendi telefonundan oynuyor, rol görme aşamasını atla
+                      // TÜM oyuncuların rollerini tek seferde "gördü" olarak işaretle
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) notifier.confirmRoleSeen(gameState.currentPlayerId ?? '');
+                        if (mounted) {
+                          for (final player in gameState.players) {
+                            notifier.confirmRoleSeen(player.id);
+                          }
+                        }
                       });
                       return const Center(child: CircularProgressIndicator());
                     }
@@ -400,7 +430,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           NeonButton(
             label: "OYUN OLUŞTUR",
             icon: Icons.add_circle_outline,
-            baseColor: Colors.deepPurple,
+            baseColor: Colors.white,
             onTap: () {
               setState(() => _isOnlineMode = true);
             },
@@ -409,7 +439,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           NeonButton(
             label: "OYUNA KATIL",
             icon: Icons.login,
-            baseColor: Colors.blueGrey,
+            baseColor: Colors.white,
             onTap: () {
               setState(() => _isOnlineMode = true);
             },
@@ -741,7 +771,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     notifier.setRoomId(_currentRoomId);
 
     // SADECE HOST oyunu başlatır ve Firebase'e gönderir
-    final initialState = ref.read(gameEngineProvider).initializeGame(currentState.players);
+    // Online modda rol görme aşamasını atla (isOnlineMode: true)
+    final initialState = ref.read(gameEngineProvider).initializeGame(currentState.players, isOnlineMode: true);
     print('🎮 [ONLINE] Initial state oluşturuldu. Phase: ${initialState.phase}');
     
     try {

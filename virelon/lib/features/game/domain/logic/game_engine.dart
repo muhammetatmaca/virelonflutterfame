@@ -5,7 +5,7 @@ import '../models/player_model.dart';
 class GameEngine {
   /// Oyunu başlatır
   /// Oyunu başlatır
-  GameState initializeGame(List<Player> playersConfig, {bool isPlusMode = false, Character? plusSpecial, Character? plusVariant2}) {
+  GameState initializeGame(List<Player> playersConfig, {bool isPlusMode = false, Character? plusSpecial, Character? plusVariant2, bool isOnlineMode = false}) {
     // 1. Deste Hazırlığı
     List<Character> masterDeck = [];
     int copiesPerCard = playersConfig.length >= 7 ? 4 : 3;
@@ -73,8 +73,10 @@ class GameEngine {
       pool: initialPool, // Para Havuzu
       treasury: 0, // Kara Para (başlangıçta 0)
       currentPlayerId: newPlayers[0].id,
-      phase: GamePhase.assigningRoles, // Start with Role Reveal
-      lastLog: 'Roller Dağıtılıyor...',
+      // Online modda shuffle animasyonu göster, sonra actionDeclaration'a geç
+      // Pass & Play modda assigningRoles fazında başla (rol görme aşaması)
+      phase: isOnlineMode ? GamePhase.shuffling : GamePhase.assigningRoles,
+      lastLog: isOnlineMode ? 'Roller Dağıtılıyor...' : 'Roller Dağıtılıyor...',
     );
   }
 

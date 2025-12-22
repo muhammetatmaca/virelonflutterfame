@@ -46,6 +46,18 @@ class GameNotifier extends StateNotifier<GameState> {
     _syncToFirebase();
   }
 
+  // Online modda shuffle animasyonu bittikten sonra direkt oyuna geç
+  void skipToActionDeclaration() {
+    if (state.phase != GamePhase.shuffling) return;
+    
+    final firstPlayer = state.players.first;
+    state = state.copyWith(
+      phase: GamePhase.actionDeclaration,
+      lastLog: 'Oyun Başladı! Sıra ${firstPlayer.name} oyuncusunda.',
+    );
+    _syncToFirebase();
+  }
+
   void performAction(GameAction action, {String? targetId, Character? claimedCharacterOverride}) {
     if (state.currentPlayerId == null) return;
     state = _engine.declareAction(state, state.currentPlayerId!, action, targetId: targetId, claimedCharacterOverride: claimedCharacterOverride);
