@@ -48,6 +48,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   StreamSubscription<GameState?>? _gameStateSubscription; // Stream kontrolü için
   bool _gameStarted = false; // Oyun başladı mı? (online mode için)
   
+  // AFK Timer (Online mode için)
+  Timer? _turnTimer;
+  int _turnTimeRemaining = 25; // 25 saniye
+  static const int _turnTimeLimit = 25;
+  
   // Phase States
   List<int> _exchangeSelectedIndices = []; // Index bazlı seçim
   List<Character> _manipulationMyHand = [];
@@ -79,6 +84,56 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _loadBannerAd();
     _loadRewardedAd();
     _loadAppOpenAd();
+    
+    // Kaydedilmiş oyunu yükle (arka plandan dönme durumu için)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSavedSession();
+    });
+  }
+
+  // Kaydedilmiş oturumu yükle
+  Future<void> _loadSavedSession() async {
+    final notifier = ref.read(gameStateProvider.notifier);
+    await notifier.loadSavedGame();
+  }
+
+  // AFK Timer yönetimi
+  void _startTurnTimer() {
+    _turnTimer?.cancel();
+    _turnTimeRemaining = _turnTimeLimit;
+    
+    _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      setState(() {
+        _turnTimeRemaining--;
+      });
+      
+      if (_turnTimeRemaining <= 0) {
+        timer.cancel();
+        _onTurnTimeout();
+      }
+    });
+  }
+
+  void _stopTurnTimer() {
+    _turnTimer?.cancel();
+    _turnTimer = null;
+  }
+
+  void _onTurnTimeout() {
+    final notifier = ref.read(gameStateProvider.notifier);
+    final gameState = ref.read(gameStateProvider);
+    
+    // Sadece sıra bizdeyse ve online moddaysak timeout uygula
+    if (_currentRoomId != null && 
+        gameState.phase == GamePhase.actionDeclaration &&
+        gameState.currentPlayerId == _myPlayerId) {
+      notifier.skipTurn();
+    }
   }
 
   @override
@@ -87,6 +142,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     _roomCodeController.dispose();
     _playerListScrollController.dispose();
     _gameStateSubscription?.cancel();
+    _turnTimer?.cancel();
     _bannerAd?.dispose();
     _rewardedAd?.dispose();
     _appOpenAd?.dispose();
@@ -1132,6 +1188,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Firebase'den güncellemeleri dinle (tüm oyuncular için)
     _listenToGameUpdates(_currentRoomId!, notifier);
     
+    // İlk oyuncu bizse timer başlat
+    if (initialState.currentPlayerId == _myPlayerId) {
+      _startTurnTimer();
+    }
+    
     // Lobiden çık, oyuna geç
     setState(() {
       _isOnlineMode = false;
@@ -1146,12 +1207,34 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Önceki stream varsa iptal et
     _gameStateSubscription?.cancel();
     
+    String? _lastCurrentPlayerId;
+    
     _gameStateSubscription = LobbyService().listenToGame(roomId).listen((newState) {
       if (newState != null && mounted) {
         print('📥 [ONLINE] Yeni state geldi! Phase: ${newState.phase}, Players: ${newState.players.length}');
+        
+        // Sıra değişti mi kontrol et
+        final turnChanged = _lastCurrentPlayerId != newState.currentPlayerId;
+        _lastCurrentPlayerId = newState.currentPlayerId;
+        
         // Firebase'den gelen state'i direkt uygula
-        // Bu sayede host'un başlattığı oyunu herkes görür
         notifier.state = newState;
+        
+        // Sıra değiştiyse ve actionDeclaration fazındaysak timer'ı yönet
+        if (turnChanged && newState.phase == GamePhase.actionDeclaration) {
+          if (newState.currentPlayerId == _myPlayerId) {
+            // Sıra bizde, timer başlat
+            _startTurnTimer();
+          } else {
+            // Sıra başkasında, timer durdur
+            _stopTurnTimer();
+          }
+        }
+        
+        // Oyun bittiğinde veya başka faza geçtiğinde timer durdur
+        if (newState.phase != GamePhase.actionDeclaration) {
+          _stopTurnTimer();
+        }
       } else {
         print('⚠️ [ONLINE] State null veya widget unmounted');
       }
@@ -1594,6 +1677,43 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       ],
                     ),
                   ),
+                  // AFK Timer (Online modda)
+                  if (_currentRoomId != null && _turnTimer != null && gameState.currentPlayerId == _myPlayerId) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _turnTimeRemaining <= 10 
+                          ? Colors.red.withOpacity(0.3) 
+                          : Colors.orange.withOpacity(0.2),
+                        border: Border.all(
+                          color: _turnTimeRemaining <= 10 
+                            ? Colors.redAccent 
+                            : Colors.orangeAccent.withOpacity(0.6)
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.timer, 
+                            color: _turnTimeRemaining <= 10 ? Colors.redAccent : Colors.orangeAccent, 
+                            size: 12
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            "${_turnTimeRemaining}s", 
+                            style: TextStyle(
+                              color: _turnTimeRemaining <= 10 ? Colors.redAccent : Colors.orangeAccent, 
+                              fontWeight: FontWeight.bold, 
+                              fontSize: 11
+                            )
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               )
             ],

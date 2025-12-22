@@ -3,6 +3,7 @@ import '../../domain/logic/game_engine.dart';
 import '../../domain/models/game_state_model.dart';
 import 'package:virelon/core/enums/game_enums.dart';
 import '../../data/services/lobby_service.dart';
+import '../../data/services/session_service.dart';
 
 import '../../domain/models/player_model.dart';
 
@@ -32,18 +33,41 @@ class GameNotifier extends StateNotifier<GameState> {
     }
   }
 
+  // Yerel depolamaya kaydet (Pass & Play için)
+  Future<void> _saveToLocal() async {
+    if (_currentRoomId == null && state.players.isNotEmpty) {
+      await SessionService.saveGameState(state);
+    }
+  }
+
+  // Kaydedilmiş oyunu yükle
+  Future<void> loadSavedGame() async {
+    final savedState = await SessionService.loadGameState();
+    if (savedState != null && savedState.players.isNotEmpty) {
+      state = savedState;
+    }
+  }
+
+  // Kaydedilmiş oyunu sil
+  Future<void> clearSavedGame() async {
+    await SessionService.clearGameState();
+  }
+
   void startGame(List<Player> playersConfig, {bool isPlusMode = false, Character? plusSpecial, Character? plusVariant2}) {
     state = _engine.initializeGame(playersConfig, isPlusMode: isPlusMode, plusSpecial: plusSpecial, plusVariant2: plusVariant2);
+    _saveToLocal();
   }
 
   void confirmRoleSeen(String playerId) {
     state = _engine.acknowledgeRole(state, playerId);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void readyForTurn() {
     state = _engine.startTurn(state);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   // Online modda shuffle animasyonu bittikten sonra direkt oyuna geç
@@ -58,54 +82,99 @@ class GameNotifier extends StateNotifier<GameState> {
     _syncToFirebase();
   }
 
+  // AFK oyuncu - süre doldu, sırayı geç (hiçbir aksiyon yapmadan)
+  void skipTurn() {
+    if (state.phase != GamePhase.actionDeclaration) return;
+    if (state.currentPlayerId == null) return;
+    
+    // Şu anki oyuncunun adını al
+    final currentPlayer = state.players.firstWhere(
+      (p) => p.id == state.currentPlayerId,
+      orElse: () => state.players.first,
+    );
+    
+    // Bir sonraki canlı oyuncuyu bul
+    final alivePlayers = state.players.where((p) => p.isAlive).toList();
+    if (alivePlayers.isEmpty) return;
+    
+    final currentIndex = alivePlayers.indexWhere((p) => p.id == state.currentPlayerId);
+    final nextIndex = (currentIndex + 1) % alivePlayers.length;
+    final nextPlayer = alivePlayers[nextIndex];
+    
+    // Sırayı değiştir
+    final updatedPlayers = state.players.map((p) {
+      return p.copyWith(isTurn: p.id == nextPlayer.id);
+    }).toList();
+    
+    state = state.copyWith(
+      players: updatedPlayers,
+      currentPlayerId: nextPlayer.id,
+      phase: GamePhase.actionDeclaration,
+      lastLog: '⏱️ ${currentPlayer.name} süresini aştı! Sıra ${nextPlayer.name} oyuncusuna geçti.',
+    );
+    
+    _syncToFirebase();
+    _saveToLocal();
+  }
+
   void performAction(GameAction action, {String? targetId, Character? claimedCharacterOverride}) {
     if (state.currentPlayerId == null) return;
     state = _engine.declareAction(state, state.currentPlayerId!, action, targetId: targetId, claimedCharacterOverride: claimedCharacterOverride);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void passAction() {
     // Kimse itiraz etmedi, hamleyi onayla
     state = _engine.resolveSuccess(state);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void performChallenge(String challengerId, {String? challengedId}) {
     state = _engine.resolveChallenge(state, challengerId, challengedId: challengedId);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void blockAction(String blockerId, Character claimCharacter) {
     state = _engine.declareBlock(state, blockerId, claimCharacter);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void loseCard(String victimId, Character card) {
     state = _engine.executeCardLoss(state, victimId, card);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void completeExchange(List<Character> keptCards) {
     state = _engine.completeExchange(state, keptCards);
+    _saveToLocal();
   }
 
   void verifyChallenge(Character? shownCard) {
     state = _engine.verifyClaim(state, shownCard);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   void readyForResolution() {
     state = _engine.startResolution(state);
+    _saveToLocal();
   }
   
   void finalizeExchange(List<Character> keptCards) {
     state = _engine.completeExchange(state, keptCards);
     _syncToFirebase();
+    _saveToLocal();
   }
   
   void finalizeManipulation(Character cardToTarget, Character cardToSelf, Character cardToDeck) {
     state = _engine.completeManipulation(state, cardToTarget, cardToSelf, cardToDeck);
     _syncToFirebase();
+    _saveToLocal();
   }
 
   // Hedef, Engizisyoncu'ya göstereceği kartı seçer
@@ -116,19 +185,23 @@ class GameNotifier extends StateNotifier<GameState> {
       investigatedCard: selectedCard,
       lastLog: "Kart seçildi! Telefonu geri veriniz.",
     );
+    _saveToLocal();
   }
 
   // Handover onayları
   void confirmInvestigationHandover() {
     state = _engine.acknowledgeInvestigationHandover(state);
+    _saveToLocal();
   }
 
   void confirmInvestigationReturn() {
     state = _engine.acknowledgeInvestigationReturn(state);
+    _saveToLocal();
   }
 
   void finalizeInvestigation(bool forceExchange) {
     state = _engine.completeInvestigation(state, forceExchange);
+    _saveToLocal();
   }
 
   bool canTarget(String targetId, GameAction action) {
@@ -156,6 +229,7 @@ class GameNotifier extends StateNotifier<GameState> {
       kayyumClaimants: updatedClaimants,
       kayyumSeenBy: updatedSeenBy,
     );
+    _saveToLocal();
   }
   
   // Kayyum'u geç (Avukat değilim / istemiyorum)
@@ -165,6 +239,7 @@ class GameNotifier extends StateNotifier<GameState> {
       updatedSeenBy.add(playerId);
     }
     state = state.copyWith(kayyumSeenBy: updatedSeenBy);
+    _saveToLocal();
   }
   
   // Sıradaki Kayyum bidding oyuncusu (SADECE canlı oyuncular, ölenler hariç)
@@ -195,6 +270,7 @@ class GameNotifier extends StateNotifier<GameState> {
   // Debug/Test için
   void reset() {
     state = const GameState(players: []);
+    clearSavedGame();
   }
 
   // Aynı oyuncularla yeni oyun başlat
@@ -217,6 +293,7 @@ class GameNotifier extends StateNotifier<GameState> {
       playerNames,
       isPlusMode: isPlusMode,
     );
+    _saveToLocal();
   }
 }
 
