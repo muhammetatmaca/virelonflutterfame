@@ -40,7 +40,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   
   // Online State
   bool _isOnlineMode = false;
+  bool _showOnlineTypeSelection = false; // Hızlı Oyun / Arkadaşlarla Oyna seçimi
+  bool _isQuickPlayMode = false; // Hızlı oyun modunda mı?
   String? _currentRoomId;
+  String? _myPlayerId; // Lobideki oyuncu ID'si
   bool _isJoining = false; // Çift tıklama önleme
   StreamSubscription<GameState?>? _gameStateSubscription; // Stream kontrolü için
   bool _gameStarted = false; // Oyun başladı mı? (online mode için)
@@ -391,14 +394,172 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         // Use SingleChildScrollView to avoid keyboard overflow on setup
         Center(
           child: SingleChildScrollView(
-            child: _isOnlineMode
-                ? _buildOnlineSetup(notifier)
-                : (_isSetupMode 
-                    ? _buildPassAndPlaySetup(notifier)
-                    : _buildMainMenu()),
+            child: _showOnlineTypeSelection
+                ? _buildOnlineTypeSelection()
+                : (_isOnlineMode
+                    ? _buildOnlineSetup(notifier)
+                    : (_isSetupMode 
+                        ? _buildPassAndPlaySetup(notifier)
+                        : _buildMainMenu())),
           ),
         ),
       ],
+    );
+  }
+
+  // === ONLINE TİP SEÇİMİ ===
+  Widget _buildOnlineTypeSelection() {
+    return GlassContainer(
+      width: 340,
+      padding: const EdgeInsets.all(24),
+      isGlowing: true,
+      borderColor: Colors.cyan,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => setState(() => _showOnlineTypeSelection = false),
+              ),
+              const Icon(Icons.wifi, size: 30, color: Colors.cyan),
+              const SizedBox(width: 12),
+              const Text(
+                "ONLINE OYNA",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          
+          // Hızlı Oyun
+          _buildOnlineOption(
+            icon: Icons.flash_on,
+            title: "HIZLI OYUN",
+            subtitle: "Rastgele oyuncularla anında eşleş",
+            color: Colors.amber,
+            onTap: () {
+              setState(() {
+                _showOnlineTypeSelection = false;
+                _isQuickPlayMode = true;
+                _isOnlineMode = true;
+              });
+            },
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Arkadaşlarla Oyna
+          _buildOnlineOption(
+            icon: Icons.group,
+            title: "ARKADAŞLARLA OYNA",
+            subtitle: "Oda oluştur veya koda katıl",
+            color: Colors.green,
+            onTap: () {
+              setState(() {
+                _showOnlineTypeSelection = false;
+                _isQuickPlayMode = false;
+                _isOnlineMode = true;
+              });
+            },
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Bilgi
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline, color: Colors.white38, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "3-8 oyuncu ile oynanabilir",
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95));
+  }
+
+  Widget _buildOnlineOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.2),
+              color.withOpacity(0.05),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: color.withOpacity(0.7)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -428,20 +589,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
           const SizedBox(height: 12),
           NeonButton(
-            label: "OYUN OLUŞTUR",
-            icon: Icons.add_circle_outline,
-            baseColor: Colors.white,
+            label: "ONLINE OYNA",
+            icon: Icons.wifi,
+            baseColor: Colors.cyan,
             onTap: () {
-              setState(() => _isOnlineMode = true);
-            },
-          ),
-           const SizedBox(height: 12),
-          NeonButton(
-            label: "OYUNA KATIL",
-            icon: Icons.login,
-            baseColor: Colors.white,
-            onTap: () {
-              setState(() => _isOnlineMode = true);
+              setState(() => _showOnlineTypeSelection = true);
             },
           ),
           const SizedBox(height: 24),
@@ -490,59 +642,81 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // === ONLINE MULTIPLAYER ===
   
   Widget _buildOnlineSetup(GameNotifier notifier) {
+    // Zaten bir odadaysak, lobi ekranını göster
     if (_currentRoomId != null) {
-      return StreamBuilder<GameState?>(
-        stream: LobbyService().listenToGame(_currentRoomId!),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      return _buildLobbyScreen(notifier);
+    }
 
-          final gameState = snapshot.data!;
-          
-          // Oyun başladıysa (phase artık setup değil), otomatik geçiş yap
-          if (gameState.phase != GamePhase.setup) {
-            // Online mode'u aktif et
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                final notifier = ref.read(gameStateProvider.notifier);
-                notifier.setRoomId(_currentRoomId);
-                _listenToGameUpdates(_currentRoomId!, notifier);
-                setState(() => _isOnlineMode = false);
-              }
-            });
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("Oyun başlıyor...", style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            );
-          }
+    // Hızlı Oyun modu
+    if (_isQuickPlayMode) {
+      return _buildQuickPlaySetup(notifier);
+    }
 
-          // Her oyuncu kendi ID'sini bilmiyor, bu yüzden Firebase'den hostId almalıyız
-          // Şimdilik: İlk oyuncu = host kabul ediyoruz
-          // TODO: LobbyService'e hostId field'ı ekle
-          final myPlayerId = gameState.players.firstWhere(
-            (p) => p.name == _nameController.text.trim(),
-            orElse: () => gameState.players.first
-          ).id;
-          final isHost = gameState.players.isNotEmpty && gameState.players.first.id == myPlayerId;
+    // Arkadaşlarla Oyna modu (oda oluştur/katıl)
+    return _buildFriendsPlaySetup(notifier);
+  }
 
-          return GlassContainer(
-            width: 360,
-            padding: const EdgeInsets.all(24),
-            isGlowing: true,
-            borderColor: Colors.greenAccent,
+  // Lobi ekranı (oyuncular bekliyor)
+  Widget _buildLobbyScreen(GameNotifier notifier) {
+    return StreamBuilder<GameState?>(
+      stream: LobbyService().listenToGame(_currentRoomId!),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final gameState = snapshot.data!;
+        
+        // Oyun başladıysa (phase artık setup değil), otomatik geçiş yap
+        if (gameState.phase != GamePhase.setup) {
+          // Online mode'u aktif et
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              final notifier = ref.read(gameStateProvider.notifier);
+              notifier.setRoomId(_currentRoomId);
+              _listenToGameUpdates(_currentRoomId!, notifier);
+              setState(() => _isOnlineMode = false);
+            }
+          });
+          return const Center(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.wifi, size: 40, color: Colors.greenAccent),
-                const SizedBox(height: 16),
-                const Text("LOBİDE BEKLENİYOR", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text("Oyun başlıyor...", style: TextStyle(color: Colors.white)),
+              ],
+            ),
+          );
+        }
+
+        // Her oyuncu kendi ID'sini bilmiyor, bu yüzden Firebase'den hostId almalıyız
+        // Şimdilik: İlk oyuncu = host kabul ediyoruz
+        final myPlayerId = gameState.players.firstWhere(
+          (p) => p.name == _nameController.text.trim(),
+          orElse: () => gameState.players.first
+        ).id;
+        final isHost = gameState.players.isNotEmpty && gameState.players.first.id == myPlayerId;
+
+        return GlassContainer(
+          width: 360,
+          padding: const EdgeInsets.all(24),
+          isGlowing: true,
+          borderColor: _isQuickPlayMode ? Colors.amber : Colors.greenAccent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isQuickPlayMode ? Icons.flash_on : Icons.wifi, 
+                size: 40, 
+                color: _isQuickPlayMode ? Colors.amber : Colors.greenAccent
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _isQuickPlayMode ? "HIZLI OYUN LOBİSİ" : "LOBİDE BEKLENİYOR", 
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+              ),
+              if (!_isQuickPlayMode) ...[ // Sadece arkadaşlarla oyna modunda kodu göster
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -554,62 +728,160 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text("Bu kodu arkadaşlarınla paylaş!", style: TextStyle(color: Colors.white54, fontSize: 10)),
-                const SizedBox(height: 24),
-                Text("OYUNCULAR (${gameState.players.length}/8)", style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                const SizedBox(height: 12),
-                Container(
-                  height: 150,
-                  decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12)),
-                  child: ListView.builder(
-                    itemCount: gameState.players.length,
-                    itemBuilder: (context, index) {
-                      final p = gameState.players[index];
-                      return ListTile(
-                        leading: CircleAvatar(backgroundColor: Colors.blueGrey, child: Text(p.name[0])),
-                        title: Text(p.name, style: const TextStyle(color: Colors.white)),
-                        trailing: index == 0 ? const Icon(Icons.star, color: Colors.amber, size: 16) : null,
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (isHost && gameState.players.length >= 3) ...[
-                  NeonButton(
-                    label: "OYUNU BAŞLAT",
-                    icon: Icons.play_arrow,
-                    baseColor: Colors.green,
-                    isLarge: true,
-                    onTap: () => _startOnlineGame(notifier, gameState),
-                  ),
-                ] else if (isHost) ...[
-                  Text(
-                    "En az 3 oyuncu gerekiyor... (${gameState.players.length}/3)",
-                    style: const TextStyle(color: Colors.white38),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-                  label: const Text("LOBİDEN AYRIL", style: TextStyle(color: Colors.redAccent)),
-                  onPressed: () {
-                    setState(() {
-                      _currentRoomId = null;
-                      _isOnlineMode = false;
-                    });
-                  },
-                )
               ],
-            ),
-          );
-        },
-      );
-    }
+              const SizedBox(height: 24),
+              Text("OYUNCULAR (${gameState.players.length}/8)", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              const SizedBox(height: 12),
+              Container(
+                height: 150,
+                decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12)),
+                child: ListView.builder(
+                  itemCount: gameState.players.length,
+                  itemBuilder: (context, index) {
+                    final p = gameState.players[index];
+                    return ListTile(
+                      leading: CircleAvatar(backgroundColor: Colors.blueGrey, child: Text(p.name[0])),
+                      title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                      trailing: index == 0 ? const Icon(Icons.star, color: Colors.amber, size: 16) : null,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (isHost && gameState.players.length >= 3) ...[
+                NeonButton(
+                  label: "OYUNU BAŞLAT",
+                  icon: Icons.play_arrow,
+                  baseColor: Colors.green,
+                  isLarge: true,
+                  onTap: () => _startOnlineGame(notifier, gameState),
+                ),
+              ] else if (isHost) ...[
+                Text(
+                  "En az 3 oyuncu gerekiyor... (${gameState.players.length}/3)",
+                  style: const TextStyle(color: Colors.white38),
+                ),
+              ] else ...[
+                const Text(
+                  "Yönetici oyunu başlatacak...",
+                  style: TextStyle(color: Colors.white38),
+                ),
+              ],
+              const SizedBox(height: 16),
+              TextButton.icon(
+                icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+                label: const Text("LOBİDEN AYRIL", style: TextStyle(color: Colors.redAccent)),
+                onPressed: () async {
+                  // Firebase'den odadan ayrıl
+                  if (_currentRoomId != null && _myPlayerId != null) {
+                    await LobbyService().leaveRoom(_currentRoomId!, _myPlayerId!);
+                  }
+                  setState(() {
+                    _currentRoomId = null;
+                    _myPlayerId = null;
+                    _isOnlineMode = false;
+                    _isQuickPlayMode = false;
+                  });
+                },
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
 
+  // Hızlı Oyun kurulum ekranı
+  Widget _buildQuickPlaySetup(GameNotifier notifier) {
     return GlassContainer(
       width: 340,
       padding: const EdgeInsets.all(24),
       isGlowing: true,
-      borderColor: Colors.cyan,
+      borderColor: Colors.amber,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => setState(() {
+                  _isOnlineMode = false;
+                  _isQuickPlayMode = false;
+                }),
+              ),
+              const Icon(Icons.flash_on, color: Colors.amber, size: 24),
+              const SizedBox(width: 8),
+              const Text("HIZLI OYUN", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _nameController,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: "OYUNCU ADI",
+              hintText: "İsmini gir...",
+              hintStyle: const TextStyle(color: Colors.white30),
+              labelStyle: const TextStyle(color: Colors.white54),
+              filled: true,
+              fillColor: Colors.white10,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.person, color: Colors.amber),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline, color: Colors.amber, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Müsait bir odaya otomatik katılacaksın veya yeni oda oluşturulacak.",
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          _isJoining
+              ? const Center(
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(color: Colors.amber),
+                      SizedBox(height: 12),
+                      Text("Oyuncu aranıyor...", style: TextStyle(color: Colors.white54)),
+                    ],
+                  ),
+                )
+              : NeonButton(
+                  label: "HIZLI EŞLEŞ",
+                  icon: Icons.flash_on,
+                  baseColor: Colors.amber,
+                  isLarge: true,
+                  onTap: () => _joinQuickPlay(notifier),
+                ),
+        ],
+      ),
+    ).animate().fadeIn();
+  }
+
+  // Arkadaşlarla Oyna kurulum ekranı
+  Widget _buildFriendsPlaySetup(GameNotifier notifier) {
+    return GlassContainer(
+      width: 340,
+      padding: const EdgeInsets.all(24),
+      isGlowing: true,
+      borderColor: Colors.green,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -620,7 +892,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => setState(() => _isOnlineMode = false),
               ),
-              const Text("ONLINE LOBİ", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              const Icon(Icons.group, color: Colors.green, size: 24),
+              const SizedBox(width: 8),
+              const Text("ARKADAŞLARLA OYNA", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
             ],
           ),
           const SizedBox(height: 24),
@@ -680,6 +954,77 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
 
+  // Hızlı Oyun - Otomatik eşleştirme
+  Future<void> _joinQuickPlay(GameNotifier notifier) async {
+    if (_isJoining) return;
+    
+    final name = _nameController.text.trim();
+    
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Lütfen bir isim girin!"))
+      );
+      return;
+    }
+
+    setState(() => _isJoining = true);
+
+    final me = Player(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      isAlive: true,
+      coins: 2,
+      avatar: 'duke',
+    );
+
+    try {
+      // Müsait oda ara
+      final roomResult = await LobbyService().findQuickPlayRoom();
+      
+      if (roomResult == 'full') {
+        // Tüm odalar dolu
+        if (mounted) {
+          setState(() => _isJoining = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Şu an müsait oda yok! Lütfen biraz bekleyin."),
+              backgroundColor: Colors.orange,
+            )
+          );
+        }
+        return;
+      }
+      
+      if (roomResult != null) {
+        // Müsait oda bulundu, katıl
+        await LobbyService().joinRoom(roomResult, me);
+        if (mounted) {
+          setState(() {
+            _currentRoomId = roomResult;
+            _myPlayerId = me.id;
+            _isJoining = false;
+          });
+        }
+      } else {
+        // Müsait oda yok, yeni oluştur
+        final roomId = await LobbyService().createRoom(me, isQuickPlay: true);
+        if (mounted) {
+          setState(() {
+            _currentRoomId = roomId;
+            _myPlayerId = me.id;
+            _isJoining = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isJoining = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Hata: $e")));
+      }
+    }
+  }
+
+
   Future<void> _createOnlineRoom(GameNotifier notifier) async {
     if (_isJoining) return; // Zaten işlem yapılıyor
     
@@ -707,6 +1052,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (mounted) {
         setState(() {
           _currentRoomId = roomId;
+          _myPlayerId = me.id;
           _isJoining = false;
         });
       }
@@ -751,6 +1097,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       if (mounted) {
         setState(() {
           _currentRoomId = code;
+          _myPlayerId = me.id;
           _isJoining = false;
         });
       }
