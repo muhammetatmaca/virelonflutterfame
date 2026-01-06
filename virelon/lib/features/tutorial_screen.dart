@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../core/enums/game_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TutorialScreen extends StatefulWidget {
   const TutorialScreen({super.key});
@@ -19,305 +20,316 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
   Timer? _animationTimer;
 
   // === DATA (SCENARIOS, CHARACTERS, SIMULATIONS) ===
-  // (Data is same as before, preserving it)
+  List<TutorialScenario> get _actionScenarios => _getActionScenarios(context);
+  List<CharacterInfo> get _characters => _getCharacters(context);
+  List<GameSimulation> get _simulations => _getSimulations(context);
   
   // === TAB 1: HAMLELER ===
-  final List<TutorialScenario> _actionScenarios = [
+  List<TutorialScenario> _getActionScenarios(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
     // TEMEL HAMLELER
     TutorialScenario(
-      title: "Gelir",
-      description: "En güvenli hamle! Engellenemez.",
+      title: l10n.tutorialIncomeTitle,
+      description: l10n.tutorialIncomeDesc,
       character: null,
       color: Colors.green,
       icon: Icons.attach_money,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "GELİR aldı", coins: "+1", narration: "Havuzdan 1 altın alır. Kimse bunu engelleyemez!", emoji: "💰"),
-        ScenarioStep(playerName: "Sistem", action: "Tamamlandı", coins: "", narration: "En yavaş ama en güvenli para kazanma yolu.", emoji: "✅"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialIncomeStep1Action, coins: "+1", narration: l10n.tutorialIncomeStep1Narration, emoji: "💰"),
+        ScenarioStep(playerName: l10n.system, action: l10n.tutorialIncomeStep2Action, coins: "", narration: l10n.tutorialIncomeStep2Narration, emoji: "✅"),
       ],
     ),
     TutorialScenario(
-      title: "Dış Yardım",
-      description: "2 altın al - Dük engelleyebilir!",
+      title: l10n.tutorialForeignAidTitle,
+      description: l10n.tutorialForeignAidDesc,
       character: null,
       color: Colors.blue,
       icon: Icons.handshake,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "DIŞ YARDIM ister", coins: "+2", narration: "2 altın almak istiyor...", emoji: "🤝"),
-        ScenarioStep(playerName: "Mehmet", action: "DÜK ile engeller!", coins: "0", narration: "'Dük'üm var!' diyerek engeller.", emoji: "🛡️"),
-        ScenarioStep(playerName: "Ahmet", action: "Meydan okumadı", coins: "", narration: "Risk almadı, hamle iptal.", emoji: "❌"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialForeignAidStep1Action, coins: "+2", narration: l10n.tutorialForeignAidStep1Narration, emoji: "🤝"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialForeignAidStep2Action, coins: "0", narration: l10n.tutorialForeignAidStep2Narration, emoji: "🛡️"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialForeignAidStep3Action, coins: "", narration: l10n.tutorialForeignAidStep3Narration, emoji: "❌"),
       ],
     ),
     TutorialScenario(
-      title: "Darbe (Coup)",
-      description: "7 altın - Kesin kart kaybettir!",
+      title: l10n.tutorialCoupTitle,
+      description: l10n.tutorialCoupDesc,
       character: null,
       color: Colors.red,
       icon: Icons.flash_on,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "DARBE yapar!", coins: "-7", narration: "7 altın ödeyerek Mehmet'e darbe yapar.", emoji: "⚔️"),
-        ScenarioStep(playerName: "Mehmet", action: "Kart kaybetti", coins: "", narration: "Darbe ENGELLENEMEZ! Bir kart açığa çıkar.", emoji: "💀"),
-        ScenarioStep(playerName: "Sistem", action: "Zorunlu darbe", coins: "", narration: "10+ altın = DARBE ZORUNLU!", emoji: "⚠️"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialCoupStep1Action, coins: "-7", narration: l10n.tutorialCoupStep1Narration, emoji: "⚔️"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialCoupStep2Action, coins: "", narration: l10n.tutorialCoupStep2Narration, emoji: "💀"),
+        ScenarioStep(playerName: l10n.system, action: l10n.tutorialCoupStep3Action, coins: "", narration: l10n.tutorialCoupStep3Narration, emoji: "⚠️"),
       ],
     ),
     // DÜK HAMLELERİ
     TutorialScenario(
-      title: "Vergi (Dük)",
-      description: "Dük olarak 3 altın al!",
+      title: l10n.tutorialTaxTitle,
+      description: l10n.tutorialTaxDesc,
       character: Character.duke,
       color: Character.duke.color,
       icon: Character.duke.icon,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "VERGİ alır", coins: "+3", narration: "'Dük'üm var!' - 3 altın almak istiyor.", emoji: "👑"),
-        ScenarioStep(playerName: "Diğerleri", action: "Bekliyor...", coins: "", narration: "Herkes meydan okuyabilir veya izin verebilir.", emoji: "🤔"),
-        ScenarioStep(playerName: "Kimse", action: "İtiraz etmedi", coins: "", narration: "Blöf olsa bile, meydan okunmadı!", emoji: "✅"),
-        ScenarioStep(playerName: "Ahmet", action: "3 altın aldı", coins: "+3", narration: "Gerçekten Dük'ü var mı? Bilinmez...", emoji: "💰"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialTaxStep1Action, coins: "+3", narration: l10n.tutorialTaxStep1Narration, emoji: "👑"),
+        ScenarioStep(playerName: l10n.otherPlayers, action: l10n.tutorialTaxStep2Action, coins: "", narration: l10n.tutorialTaxStep2Narration, emoji: "🤔"),
+        ScenarioStep(playerName: l10n.noOne, action: l10n.tutorialTaxStep3Action, coins: "", narration: l10n.tutorialTaxStep3Narration, emoji: "✅"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialTaxStep4Action, coins: "+3", narration: l10n.tutorialTaxStep4Narration, emoji: "💰"),
       ],
     ),
     TutorialScenario(
-      title: "Dük ile Blok",
-      description: "Dış yardımı engelle!",
+      title: l10n.tutorialDukeBlockTitle,
+      description: l10n.tutorialDukeBlockDesc,
       character: Character.duke,
       color: Character.duke.color,
       icon: Icons.shield,
       steps: [
-        ScenarioStep(playerName: "Mehmet", action: "DIŞ YARDIM ister", coins: "+2", narration: "Mehmet 2 altın almak istiyor.", emoji: "🤝"),
-        ScenarioStep(playerName: "Ahmet", action: "DÜK ile engeller!", coins: "", narration: "'Dük'üm var, dış yardımı engelliyorum!'", emoji: "🛡️"),
-        ScenarioStep(playerName: "Mehmet", action: "Kabul etti", coins: "0", narration: "Meydan okumadı, hamle iptal.", emoji: "❌"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialDukeBlockStep1Action, coins: "+2", narration: l10n.tutorialDukeBlockStep1Narration, emoji: "🤝"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialDukeBlockStep2Action, coins: "", narration: l10n.tutorialDukeBlockStep2Narration, emoji: "🛡️"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialDukeBlockStep3Action, coins: "0", narration: l10n.tutorialDukeBlockStep3Narration, emoji: "❌"),
       ],
     ),
     // SUİKASTÇI HAMLELERİ
     TutorialScenario(
-      title: "Suikast",
-      description: "3 altın öde, rakibi etkisizleştir!",
+      title: l10n.tutorialAssassinateTitle,
+      description: l10n.tutorialAssassinateDesc,
       character: Character.assassin,
       color: Character.assassin.color,
       icon: Character.assassin.icon,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "SUİKAST yapar", coins: "-3", narration: "3 altın ödeyerek Mehmet'e suikast!", emoji: "🗡️"),
-        ScenarioStep(playerName: "Mehmet", action: "Engel yok", coins: "", narration: "Kontes'i yok, engelleyemiyor.", emoji: "😱"),
-        ScenarioStep(playerName: "Mehmet", action: "Kart kaybetti", coins: "", narration: "Bir kartını açığa çıkarır.", emoji: "💀"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialAssassinateStep1Action, coins: "-3", narration: l10n.tutorialAssassinateStep1Narration, emoji: "🗡️"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialAssassinateStep2Action, coins: "", narration: l10n.tutorialAssassinateStep2Narration, emoji: "😱"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialAssassinateStep3Action, coins: "", narration: l10n.tutorialAssassinateStep3Narration, emoji: "💀"),
       ],
     ),
     TutorialScenario(
-      title: "Suikast Engeli",
-      description: "Kontes ile suikastı blokla!",
+      title: l10n.tutorialContessaBlockTitle,
+      description: l10n.tutorialContessaBlockDesc,
       character: Character.countess,
       color: Character.countess.color,
       icon: Icons.shield,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "SUİKAST yapar", coins: "-3", narration: "3 altın ödeyerek Mehmet'e suikast.", emoji: "🗡️"),
-        ScenarioStep(playerName: "Mehmet", action: "KONTES ile engeller!", coins: "", narration: "'Kontes'im var, suikastı engelledim!'", emoji: "❤️"),
-        ScenarioStep(playerName: "Ahmet", action: "Kabul etti", coins: "", narration: "3 altını gitti ama suikast iptal!", emoji: "💸"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialContessaBlockStep1Action, coins: "-3", narration: l10n.tutorialContessaBlockStep1Narration, emoji: "🗡️"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialContessaBlockStep2Action, coins: "", narration: l10n.tutorialContessaBlockStep2Narration, emoji: "❤️"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialContessaBlockStep3Action, coins: "", narration: l10n.tutorialContessaBlockStep3Narration, emoji: "💸"),
       ],
     ),
     // YÜZBAŞI HAMLELERİ
     TutorialScenario(
-      title: "Çalma (Yüzbaşı)",
-      description: "Rakipten 2 altın çal!",
+      title: l10n.tutorialStealTitle,
+      description: l10n.tutorialStealDesc,
       character: Character.captain,
       color: Character.captain.color,
       icon: Character.captain.icon,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "ÇALIYOR", coins: "+2", narration: "Mehmet'ten 2 altın çalmak istiyor.", emoji: "🏴‍☠️"),
-        ScenarioStep(playerName: "Mehmet", action: "Engelleyemez!", coins: "-2", narration: "Yüzbaşı/Elçi/Engizisyoncu yok!", emoji: "😢"),
-        ScenarioStep(playerName: "Sistem", action: "Transfer", coins: "", narration: "Para doğrudan transfer edilir.", emoji: "💱"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialStealStep1Action, coins: "+2", narration: l10n.tutorialStealStep1Narration, emoji: "🏴‍☠️"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialStealStep2Action, coins: "-2", narration: l10n.tutorialStealStep2Narration, emoji: "😢"),
+        ScenarioStep(playerName: l10n.system, action: l10n.tutorialStealStep3Action, coins: "", narration: l10n.tutorialStealStep3Narration, emoji: "💱"),
       ],
     ),
     TutorialScenario(
-      title: "Çalmayı Engelle",
-      description: "Yüzbaşı/Elçi ile çalmayı blokla!",
+      title: l10n.tutorialStealBlockTitle,
+      description: l10n.tutorialStealBlockDesc,
       character: Character.captain,
       color: Character.captain.color,
       icon: Icons.shield,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "ÇALIYOR", coins: "+2", narration: "Mehmet'ten 2 altın çalmak istiyor.", emoji: "🏴‍☠️"),
-        ScenarioStep(playerName: "Mehmet", action: "YÜZBAŞI ile engeller!", coins: "", narration: "'Yüzbaşı'ım var, çalamazsın!'", emoji: "🛡️"),
-        ScenarioStep(playerName: "Ahmet", action: "Kabul etti", coins: "0", narration: "Hırsızlık engellendi!", emoji: "❌"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialStealBlockStep1Action, coins: "+2", narration: l10n.tutorialStealBlockStep1Narration, emoji: "🏴‍☠️"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialStealBlockStep2Action, coins: "", narration: l10n.tutorialStealBlockStep2Narration, emoji: "🛡️"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialStealBlockStep3Action, coins: "0", narration: l10n.tutorialStealBlockStep3Narration, emoji: "❌"),
       ],
     ),
     // ELÇİ HAMLELERİ
     TutorialScenario(
-      title: "Kart Değişimi (Elçi)",
-      description: "Desteden 2 kart çek, 2 ver!",
+      title: l10n.tutorialExchangeTitle,
+      description: l10n.tutorialExchangeDesc,
       character: Character.ambassador,
       color: Character.ambassador.color,
       icon: Character.ambassador.icon,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "DEĞİŞİM yapar", coins: "", narration: "Elçi olarak kart değişimi istiyor.", emoji: "🔄"),
-        ScenarioStep(playerName: "Ahmet", action: "2 kart çekti", coins: "", narration: "Desteden 2 kart alır, 4 kartı var.", emoji: "🃏"),
-        ScenarioStep(playerName: "Ahmet", action: "2 kart seçti", coins: "", narration: "İstediği 2 kartı tutar, diğerlerini verir.", emoji: "✨"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialExchangeStep1Action, coins: "", narration: l10n.tutorialExchangeStep1Narration, emoji: "🔄"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialExchangeStep2Action, coins: "", narration: l10n.tutorialExchangeStep2Narration, emoji: "🃏"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialExchangeStep3Action, coins: "", narration: l10n.tutorialExchangeStep3Narration, emoji: "✨"),
       ],
     ),
     // MEYDAN OKUMA
     TutorialScenario(
-      title: "Meydan Okuma - Başarılı",
-      description: "Blöf yapanı yakala!",
+      title: l10n.tutorialChallengeSuccessTitle,
+      description: l10n.tutorialChallengeSuccessDesc,
       character: null,
       color: Colors.orange,
       icon: Icons.gavel,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "VERGİ alır", coins: "+3", narration: "Ama Dük'ü YOK! Blöf yapıyor.", emoji: "🎭"),
-        ScenarioStep(playerName: "Mehmet", action: "MEYDAN OKUYOR!", coins: "", narration: "'Dük'ün yok, blöf yapıyorsun!'", emoji: "⚡"),
-        ScenarioStep(playerName: "Ahmet", action: "Kartları gösteriyor", coins: "", narration: "Kartlarını göstermek ZORUNDA.", emoji: "👀"),
-        ScenarioStep(playerName: "Ahmet", action: "BLÖF YAKALANDI!", coins: "", narration: "Dük yok! Ahmet kart kaybeder.", emoji: "💀"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialChallengeSuccessStep1Action, coins: "+3", narration: l10n.tutorialChallengeSuccessStep1Narration, emoji: "🎭"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialChallengeSuccessStep2Action, coins: "", narration: l10n.tutorialChallengeSuccessStep2Narration, emoji: "⚡"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialChallengeSuccessStep3Action, coins: "", narration: l10n.tutorialChallengeSuccessStep3Narration, emoji: "👀"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialChallengeSuccessStep4Action, coins: "", narration: l10n.tutorialChallengeSuccessStep4Narration, emoji: "💀"),
       ],
     ),
     TutorialScenario(
-      title: "Meydan Okuma - Başarısız",
-      description: "Yanlış tahmin = Kart kaybı!",
+      title: l10n.tutorialChallengeFailTitle,
+      description: l10n.tutorialChallengeFailDesc,
       character: null,
       color: Colors.red.shade700,
       icon: Icons.gavel,
       steps: [
-        ScenarioStep(playerName: "Ahmet", action: "VERGİ alır", coins: "+3", narration: "Dük ile vergi almak istiyor.", emoji: "👑"),
-        ScenarioStep(playerName: "Mehmet", action: "MEYDAN OKUYOR!", coins: "", narration: "'Dük'ün yok!'", emoji: "⚡"),
-        ScenarioStep(playerName: "Ahmet", action: "Dük'ü gösterdi!", coins: "", narration: "Gerçekten Dük'ü var!", emoji: "✅"),
-        ScenarioStep(playerName: "Mehmet", action: "YANILDI!", coins: "", narration: "Mehmet kart kaybeder!", emoji: "💀"),
-        ScenarioStep(playerName: "Ahmet", action: "Kartını değişti", coins: "", narration: "Dük desteye geri gider, yeni kart alır.", emoji: "🔄"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialChallengeFailStep1Action, coins: "+3", narration: l10n.tutorialChallengeFailStep1Narration, emoji: "👑"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialChallengeFailStep2Action, coins: "", narration: l10n.tutorialChallengeFailStep2Narration, emoji: "⚡"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialChallengeFailStep3Action, coins: "", narration: l10n.tutorialChallengeFailStep3Narration, emoji: "✅"),
+        ScenarioStep(playerName: l10n.player2, action: l10n.tutorialChallengeFailStep4Action, coins: "", narration: l10n.tutorialChallengeFailStep4Narration, emoji: "💀"),
+        ScenarioStep(playerName: l10n.player1, action: l10n.tutorialChallengeFailStep5Action, coins: "", narration: l10n.tutorialChallengeFailStep5Narration, emoji: "🔄"),
       ],
     ),
-  ];
+    ];
+  }
 
   // === TAB 2: KARAKTERLER ===
-  final List<CharacterInfo> _characters = [
+  List<CharacterInfo> _getCharacters(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
     // NORMAL MOD
     CharacterInfo(
       character: Character.duke,
-      name: "Dük",
+      name: l10n.duke,
       isPlusMod: false,
-      description: "Para imparatoru! Vergi topla ve dış yardımı engelle.",
-      abilities: ["💰 Vergi: Havuzdan 3 altın al", "🛡️ Dış Yardımı engelle"],
-      tips: ["En güçlü para kazanma yolu", "Herkes Dük iddia eder - dikkatli ol!"],
+      description: l10n.dukeCharDesc,
+      abilities: [l10n.dukeAbility1, l10n.dukeAbility2],
+      tips: [l10n.dukeTip1, l10n.dukeTip2],
     ),
     CharacterInfo(
       character: Character.assassin,
-      name: "Suikastçı",
+      name: l10n.assassin,
       isPlusMod: false,
-      description: "Gölgelerin efendisi. 3 altınla rakibi etkisizleştir!",
-      abilities: ["🗡️ Suikast: 3 altın öde, hedef kart kaybeder", "⚡ Darbe'den ucuz ama engellenebilir"],
-      tips: ["Kontes suikastı engeller", "Para geri gelmez, engellense bile!"],
+      description: l10n.assassinCharDesc,
+      abilities: [l10n.assassinAbility1, l10n.assassinAbility2],
+      tips: [l10n.assassinTip1, l10n.assassinTip2],
     ),
     CharacterInfo(
       character: Character.countess,
-      name: "Kontes",
+      name: l10n.contessa,
       isPlusMod: false,
-      description: "Sarayın koruyucusu. Suikastlara kalkan!",
-      abilities: ["🛡️ Suikastları engelle", "❌ Saldırı yeteneği yok"],
-      tips: ["Savunma odaklı", "Suikastçıya karşı değerli"],
+      description: l10n.contessaCharDesc,
+      abilities: [l10n.contessaAbility1, l10n.contessaAbility2],
+      tips: [l10n.contessaTip1, l10n.contessaTip2],
     ),
     CharacterInfo(
       character: Character.captain,
-      name: "Yüzbaşı",
+      name: l10n.captain,
       isPlusMod: false,
-      description: "Deniz korsanı! Rakiplerden çal!",
-      abilities: ["💰 Çalma: Rakipten 2 altın çal", "🛡️ Çalmayı engelle"],
-      tips: ["Hem saldırı hem savunma", "Fakir oyuncudan çalamazsın"],
+      description: l10n.captainCharDesc,
+      abilities: [l10n.captainAbility1, l10n.captainAbility2],
+      tips: [l10n.captainTip1, l10n.captainTip2],
     ),
     CharacterInfo(
       character: Character.ambassador,
-      name: "Elçi",
+      name: l10n.ambassador,
       isPlusMod: false,
-      description: "Diplomat! Kartlarını değiştir!",
-      abilities: ["🔄 Değişim: Desteden 2 çek, 2 ver", "🛡️ Çalmayı engelle"],
-      tips: ["Strateji değiştirmek için harika", "Kötü kartlardan kurtul"],
+      description: l10n.ambassadorCharDesc,
+      abilities: [l10n.ambassadorAbility1, l10n.ambassadorAbility2],
+      tips: [l10n.ambassadorTip1, l10n.ambassadorTip2],
     ),
     // PLUS MOD KARAKTERLERİ
     CharacterInfo(
       character: Character.inquisitor,
-      name: "Engizisyoncu",
+      name: l10n.inquisitor,
       isPlusMod: true,
-      description: "Sorgulayıcı! Rakibin kartını gör ve değiştirt!",
-      abilities: ["🔍 Sorgu: Rakibin 1 kartını gör", "🔄 Zorunlu değişim yaptırabilirsin", "🛡️ Çalmayı engelle"],
-      tips: ["Bilgi güçtür!", "Gördüğün kartı değiştirtebilirsin"],
+      description: l10n.inquisitorCharDesc,
+      abilities: [l10n.inquisitorAbility1, l10n.inquisitorAbility2, l10n.inquisitorAbility3],
+      tips: [l10n.inquisitorTip1, l10n.inquisitorTip2],
     ),
     CharacterInfo(
       character: Character.avukat,
-      name: "Avukat",
+      name: l10n.lawyer,
       isPlusMod: true,
-      description: "Miras avcısı! Ölen oyuncunun parasını al!",
-      abilities: ["⚖️ Kayyum: Ölen oyuncunun parasını al", "🛡️ Suikastı engelle"],
-      tips: ["Oyuncu öldüğünde aktif ol", "Birden fazla avukat varsa paylaşım"],
+      description: l10n.lawyerCharDesc,
+      abilities: [l10n.lawyerAbility1, l10n.lawyerAbility2],
+      tips: [l10n.lawyerTip1, l10n.lawyerTip2],
     ),
     CharacterInfo(
       character: Character.gazeteci,
-      name: "Gazeteci",
+      name: l10n.journalist,
       isPlusMod: true,
-      description: "Manipülatör! 3 kart dağıtarak rakibin elini değiştir!",
-      abilities: ["📰 Manipülasyon: 1 deste + 2 hedef kartı", "🎲 1 kartı hedefe, 1 kartı destede, 1 sana"],
-      tips: ["Rakibin iyi kartını al!", "Stratejik olarak kullan"],
+      description: l10n.journalistCharDesc,
+      abilities: [l10n.journalistAbility1, l10n.journalistAbility2],
+      tips: [l10n.journalistTip1, l10n.journalistTip2],
     ),
   ];
+  }
 
   // === TAB 3: OYUN SİMÜLASYONLARI ===
-  final List<GameSimulation> _simulations = [
+  List<GameSimulation> _getSimulations(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
     GameSimulation(
-      title: "Hızlı Zafer",
-      description: "3 oyunculu agresif oyun",
+      title: l10n.simQuickVictory,
+      description: l10n.simQuickVictoryDesc,
       players: ["Ahmet", "Mehmet", "Ayşe"],
       winner: "Ahmet",
       turns: [
-        SimTurn(player: "Ahmet", action: "Gelir", result: "+1 altın", emoji: "💰"),
-        SimTurn(player: "Mehmet", action: "Vergi (Dük)", result: "+3 altın", emoji: "👑"),
-        SimTurn(player: "Ayşe", action: "Dış Yardım", result: "+2 altın", emoji: "🤝"),
-        SimTurn(player: "Ahmet", action: "Vergi (Dük)", result: "+3 altın (4 total)", emoji: "👑"),
-        SimTurn(player: "Mehmet", action: "Çalma (Yüzbaşı)", result: "Ayşe'den 2 altın", emoji: "🏴‍☠️"),
-        SimTurn(player: "Ayşe", action: "Suikast → Mehmet", result: "Mehmet 1 kart kaybetti", emoji: "🗡️"),
-        SimTurn(player: "Ahmet", action: "Darbe → Ayşe", result: "Ayşe 1 kart kaybetti", emoji: "⚔️"),
-        SimTurn(player: "Mehmet", action: "Gelir", result: "+1 altın", emoji: "💰"),
-        SimTurn(player: "Ayşe", action: "Çalma → Ahmet", result: "+2 altın", emoji: "🏴‍☠️"),
-        SimTurn(player: "Ahmet", action: "Darbe → Mehmet", result: "MEHMET ELENDİ!", emoji: "💀"),
-        SimTurn(player: "Ayşe", action: "Gelir", result: "+1 altın", emoji: "💰"),
-        SimTurn(player: "Ahmet", action: "Darbe → Ayşe", result: "AYŞE ELENDİ!", emoji: "💀"),
-        SimTurn(player: "🏆", action: "AHMET KAZANDI!", result: "", emoji: "🎉"),
+        SimTurn(player: "Ahmet", action: l10n.income, result: "+1", emoji: "💰"),
+        SimTurn(player: "Mehmet", action: "${l10n.tax} (${l10n.duke})", result: "+3", emoji: "👑"),
+        SimTurn(player: "Ayşe", action: l10n.foreignAid, result: "+2", emoji: "🤝"),
+        SimTurn(player: "Ahmet", action: "${l10n.tax} (${l10n.duke})", result: "+3", emoji: "👑"),
+        SimTurn(player: "Mehmet", action: "${l10n.steal} (${l10n.captain})", result: "Ayşe -2", emoji: "🏴‍☠️"),
+        SimTurn(player: "Ayşe", action: "${l10n.assassinate} → Mehmet", result: "-1 card", emoji: "🗡️"),
+        SimTurn(player: "Ahmet", action: "${l10n.coup} → Ayşe", result: "-1 card", emoji: "⚔️"),
+        SimTurn(player: "Mehmet", action: l10n.income, result: "+1", emoji: "💰"),
+        SimTurn(player: "Ayşe", action: "${l10n.steal} → Ahmet", result: "+2", emoji: "🏴‍☠️"),
+        SimTurn(player: "Ahmet", action: "${l10n.coup} → Mehmet", result: l10n.playerEliminated("MEHMET"), emoji: "💀"),
+        SimTurn(player: "Ayşe", action: l10n.income, result: "+1", emoji: "💰"),
+        SimTurn(player: "Ahmet", action: "${l10n.coup} → Ayşe", result: l10n.playerEliminated("AYŞE"), emoji: "💀"),
+        SimTurn(player: "🏆", action: l10n.playerWon("AHMET"), result: "", emoji: "🎉"),
       ],
     ),
     GameSimulation(
-      title: "Blöf Savaşı",
-      description: "Meydan okumalarla dolu oyun",
+      title: l10n.simBluffWar,
+      description: l10n.simBluffWarDesc,
       players: ["Ali", "Veli", "Zeynep"],
       winner: "Zeynep",
       turns: [
-        SimTurn(player: "Ali", action: "Vergi (Dük)", result: "+3 altın", emoji: "👑"),
-        SimTurn(player: "Veli", action: "Meydan okudu!", result: "Ali Dük'ü gösterdi!", emoji: "⚡"),
-        SimTurn(player: "Veli", action: "Kart kaybetti", result: "Yanlış tahmin!", emoji: "💀"),
-        SimTurn(player: "Zeynep", action: "Dış Yardım", result: "+2 altın", emoji: "🤝"),
-        SimTurn(player: "Ali", action: "Suikast → Zeynep", result: "-3 altın", emoji: "🗡️"),
-        SimTurn(player: "Zeynep", action: "Kontes ile engelledi!", result: "Suikast iptal", emoji: "❤️"),
-        SimTurn(player: "Veli", action: "Vergi (Dük)", result: "BLÖF!", emoji: "🎭"),
-        SimTurn(player: "Ali", action: "Meydan okudu!", result: "Veli'de Dük yok!", emoji: "⚡"),
-        SimTurn(player: "Veli", action: "ELENDİ!", result: "Son kartını kaybetti", emoji: "💀"),
-        SimTurn(player: "Zeynep", action: "Darbe → Ali", result: "Ali 1 kart kaybetti", emoji: "⚔️"),
-        SimTurn(player: "Ali", action: "Gelir", result: "+1 altın", emoji: "💰"),
-        SimTurn(player: "Zeynep", action: "Darbe → Ali", result: "ALİ ELENDİ!", emoji: "💀"),
-        SimTurn(player: "🏆", action: "ZEYNEP KAZANDI!", result: "", emoji: "🎉"),
+        SimTurn(player: "Ali", action: "${l10n.tax} (${l10n.duke})", result: "+3", emoji: "👑"),
+        SimTurn(player: "Veli", action: l10n.challenge, result: "Ali ${l10n.duke}!", emoji: "⚡"),
+        SimTurn(player: "Veli", action: "-1 card", result: "Wrong!", emoji: "💀"),
+        SimTurn(player: "Zeynep", action: l10n.foreignAid, result: "+2", emoji: "🤝"),
+        SimTurn(player: "Ali", action: "${l10n.assassinate} → Zeynep", result: "-3", emoji: "🗡️"),
+        SimTurn(player: "Zeynep", action: "${l10n.contessa} ${l10n.block}!", result: "Blocked", emoji: "❤️"),
+        SimTurn(player: "Veli", action: "${l10n.tax} (${l10n.duke})", result: "BLUFF!", emoji: "🎭"),
+        SimTurn(player: "Ali", action: l10n.challenge, result: "No ${l10n.duke}!", emoji: "⚡"),
+        SimTurn(player: "Veli", action: l10n.playerEliminated("VELİ"), result: "Last card", emoji: "💀"),
+        SimTurn(player: "Zeynep", action: "${l10n.coup} → Ali", result: "-1 card", emoji: "⚔️"),
+        SimTurn(player: "Ali", action: l10n.income, result: "+1", emoji: "💰"),
+        SimTurn(player: "Zeynep", action: "${l10n.coup} → Ali", result: l10n.playerEliminated("ALİ"), emoji: "💀"),
+        SimTurn(player: "🏆", action: l10n.playerWon("ZEYNEP"), result: "", emoji: "🎉"),
       ],
     ),
     GameSimulation(
-      title: "Uzun Savaş",
-      description: "4 oyunculu stratejik oyun",
+      title: l10n.simLongBattle,
+      description: l10n.simLongBattleDesc,
       players: ["Can", "Deniz", "Ece", "Fatma"],
       winner: "Deniz",
       turns: [
-        SimTurn(player: "Can", action: "Gelir", result: "+1 altın", emoji: "💰"),
-        SimTurn(player: "Deniz", action: "Dış Yardım", result: "+2 altın", emoji: "🤝"),
-        SimTurn(player: "Ece", action: "Vergi (Dük)", result: "+3 altın", emoji: "👑"),
-        SimTurn(player: "Fatma", action: "Çalma → Ece", result: "+2 altın", emoji: "🏴‍☠️"),
-        SimTurn(player: "Ece", action: "Elçi ile engelledi!", result: "Çalma iptal", emoji: "🛡️"),
-        SimTurn(player: "Can", action: "Elçi ile değişim", result: "2 yeni kart", emoji: "🔄"),
-        SimTurn(player: "Deniz", action: "Vergi (Dük)", result: "+3 altın (5 total)", emoji: "👑"),
-        SimTurn(player: "Ece", action: "Suikast → Can", result: "Can 1 kart kaybetti", emoji: "🗡️"),
-        SimTurn(player: "Fatma", action: "Darbe → Ece", result: "Ece 1 kart kaybetti", emoji: "⚔️"),
-        SimTurn(player: "Can", action: "Çalma → Deniz", result: "+2 altın", emoji: "🏴‍☠️"),
-        SimTurn(player: "Deniz", action: "Darbe → Can", result: "CAN ELENDİ!", emoji: "💀"),
-        SimTurn(player: "Ece", action: "Gelir", result: "+1 altın", emoji: "💰"),
-        SimTurn(player: "Fatma", action: "Darbe → Ece", result: "ECE ELENDİ!", emoji: "💀"),
-        SimTurn(player: "Deniz", action: "Darbe → Fatma", result: "Fatma 1 kart kaybetti", emoji: "⚔️"),
-        SimTurn(player: "Fatma", action: "Suikast → Deniz", result: "Deniz 1 kart kaybetti", emoji: "🗡️"),
-        SimTurn(player: "Deniz", action: "Darbe → Fatma", result: "FATMA ELENDİ!", emoji: "💀"),
-        SimTurn(player: "🏆", action: "DENİZ KAZANDI!", result: "", emoji: "🎉"),
+        SimTurn(player: "Can", action: l10n.income, result: "+1", emoji: "💰"),
+        SimTurn(player: "Deniz", action: l10n.foreignAid, result: "+2", emoji: "🤝"),
+        SimTurn(player: "Ece", action: "${l10n.tax} (${l10n.duke})", result: "+3", emoji: "👑"),
+        SimTurn(player: "Fatma", action: "${l10n.steal} → Ece", result: "+2", emoji: "🏴‍☠️"),
+        SimTurn(player: "Ece", action: "${l10n.ambassador} ${l10n.block}!", result: "Blocked", emoji: "🛡️"),
+        SimTurn(player: "Can", action: l10n.exchange, result: "2 cards", emoji: "🔄"),
+        SimTurn(player: "Deniz", action: "${l10n.tax} (${l10n.duke})", result: "+3", emoji: "👑"),
+        SimTurn(player: "Ece", action: "${l10n.assassinate} → Can", result: "-1 card", emoji: "🗡️"),
+        SimTurn(player: "Fatma", action: "${l10n.coup} → Ece", result: "-1 card", emoji: "⚔️"),
+        SimTurn(player: "Can", action: "${l10n.steal} → Deniz", result: "+2", emoji: "🏴‍☠️"),
+        SimTurn(player: "Deniz", action: "${l10n.coup} → Can", result: l10n.playerEliminated("CAN"), emoji: "💀"),
+        SimTurn(player: "Ece", action: l10n.income, result: "+1", emoji: "💰"),
+        SimTurn(player: "Fatma", action: "${l10n.coup} → Ece", result: l10n.playerEliminated("ECE"), emoji: "💀"),
+        SimTurn(player: "Deniz", action: "${l10n.coup} → Fatma", result: "-1 card", emoji: "⚔️"),
+        SimTurn(player: "Fatma", action: "${l10n.assassinate} → Deniz", result: "-1 card", emoji: "🗡️"),
+        SimTurn(player: "Deniz", action: "${l10n.coup} → Fatma", result: l10n.playerEliminated("FATMA"), emoji: "💀"),
+        SimTurn(player: "🏆", action: l10n.playerWon("DENİZ"), result: "", emoji: "🎉"),
       ],
     ),
   ];
+  }
 
   @override
   void initState() {
@@ -453,10 +465,10 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
                         onPressed: () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          "OYUN REHBERİ",
-                          style: TextStyle(
+                          AppLocalizations.of(context)!.gameGuide,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -494,10 +506,10 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
                     labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     indicatorSize: TabBarIndicatorSize.tab,
                     dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: "HAMLELER"),
-                      Tab(text: "KARAKTER"),
-                      Tab(text: "SİMÜLASYON"),
+                    tabs: [
+                      Tab(text: AppLocalizations.of(context)!.actions),
+                      Tab(text: AppLocalizations.of(context)!.characters),
+                      Tab(text: AppLocalizations.of(context)!.simulations),
                     ],
                   ),
                 ),
@@ -538,6 +550,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
 
   // === TAB 1: HAMLELER (White Design) ===
   Widget _buildActionsTab() {
+    final l10n = AppLocalizations.of(context)!;
     final scenario = _actionScenarios[_selectedScenarioIndex];
 
     return Column(
@@ -761,7 +774,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
                 child: ElevatedButton.icon(
                   onPressed: _playScenario,
                   icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                  label: Text(_isPlaying ? "DURAKLAT" : "OYNAT"),
+                  label: Text(_isPlaying ? l10n.pauseUpperCase : l10n.playUpperCase),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: scenario.color,
                     foregroundColor: Colors.white,
@@ -807,6 +820,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
 
   // === TAB 2: KARAKTERLER (White Design) ===
   Widget _buildCharactersTab() {
+    final l10n = AppLocalizations.of(context)!;
     return ListView.builder(
       padding: EdgeInsets.zero,
       itemCount: _characters.length,
@@ -873,7 +887,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
                Column(
                  crossAxisAlignment: CrossAxisAlignment.start,
                  children: [
-                   Text("YETENEKLERİ:", style: TextStyle(color: Colors.grey.shade800, fontSize: 12, fontWeight: FontWeight.bold)),
+                   Text(l10n.abilitiesHeader, style: TextStyle(color: Colors.grey.shade800, fontSize: 12, fontWeight: FontWeight.bold)),
                    const SizedBox(height: 8),
                    ...char.abilities.map((ability) => Padding(
                      padding: const EdgeInsets.only(bottom: 8),
@@ -891,7 +905,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
                      ),
                    )),
                    const SizedBox(height: 12),
-                   const Text("İPUÇLARI:", style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                   Text(l10n.tipsHeader, style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
                    const SizedBox(height: 8),
                    ...char.tips.map((tip) => Padding(
                      padding: const EdgeInsets.only(bottom: 6),
@@ -916,6 +930,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
 
   // === TAB 3: SİMÜLASYONLAR (White Design) ===
   Widget _buildSimulationsTab() {
+    final l10n = AppLocalizations.of(context)!;
     return ListView.builder(
       padding: EdgeInsets.zero,
       itemCount: _simulations.length,
@@ -979,7 +994,7 @@ class _TutorialScreenState extends State<TutorialScreen> with SingleTickerProvid
                     )).toList(),
                   ),
                   const SizedBox(height: 20),
-                  const Text("OYUN AKIŞI:", style: TextStyle(color: Color(0xFF1A1A1A), fontSize: 13, fontWeight: FontWeight.bold)),
+                  Text(l10n.gameFlowHeader, style: const TextStyle(color: Color(0xFF1A1A1A), fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   // Turns
                   ...sim.turns.asMap().entries.map((entry) {

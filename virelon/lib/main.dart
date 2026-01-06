@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'firebase_options.dart';
 import 'features/splash_screen.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -30,6 +32,22 @@ class VirelonApp extends StatelessWidget {
     return MaterialApp(
       title: 'VIRELON',
       debugShowCheckedModeBanner: false,
+      
+      // Lokalizasyon Ayarları
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en'), // English
+        Locale('tr'), // Turkish
+        Locale('es'), // Spanish
+        Locale('de'), // German
+        Locale('zh'), // Chinese
+      ],
+      
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
         useMaterial3: true,

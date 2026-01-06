@@ -4,6 +4,7 @@ import 'dart:async';
 import 'onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game/presentation/screens/game_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -92,30 +93,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Logo/Icon
-              Container(
+              Image.asset(
+                'assets/images/cards/iconpng.png',
                 width: 150,
                 height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.purple.shade800,
-                      Colors.blue.shade800,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.purple.withOpacity(0.5),
-                      blurRadius: 40,
-                      spreadRadius: 10,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.style,
-                  size: 80,
-                  color: Colors.white,
-                ),
               )
                   .animate(controller: _logoController)
                   .scale(begin: const Offset(0.5, 0.5), end: const Offset(1, 1), curve: Curves.elasticOut)
@@ -151,9 +132,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
               // Subtitle
               if (_showSubtitle)
-                const Text(
-                  'Blöf • Strateji • Entrika',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context)!.splashSubtitle,
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Colors.white54,
                     letterSpacing: 4,

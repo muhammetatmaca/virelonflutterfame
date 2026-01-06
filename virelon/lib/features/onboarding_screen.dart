@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'game/presentation/screens/game_screen.dart';
 import '../core/enums/game_enums.dart';
 import 'dart:math' as math;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -16,67 +17,71 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<OnboardingPage> _pages = [
+  List<OnboardingPage> _getPages(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
     OnboardingPage(
       icon: Icons.style,
-      title: "VIRELON'a",
-      titleHighlight: "Hoş Geldin!",
-      description: "Blöf, strateji ve entrika oyunu.\nHayatta kalan son oyuncu ol!",
+      title: l10n.onboardingWelcome,
+      titleHighlight: l10n.onboardingWelcomeHighlight,
+      description: l10n.onboardingWelcomeDesc,
       color: Colors.purple,
-      tips: ["🎭 Her oyuncuya 2 gizli kart", "💰 2 altın ile başla", "🎯 Tüm kartları kaybet = Elen"],
+      tips: [l10n.onboardingWelcomeTip1, l10n.onboardingWelcomeTip2, l10n.onboardingWelcomeTip3],
     ),
     OnboardingPage(
       icon: Icons.monetization_on,
-      title: "Temel",
-      titleHighlight: "Hamleler",
-      description: "Her tur bir hamle yapmalısın.\nKarakter iddiası gerektirmeyenler:",
+      title: l10n.onboardingBasicMoves,
+      titleHighlight: l10n.onboardingBasicMovesHighlight,
+      description: l10n.onboardingBasicMovesDesc,
       color: Colors.amber,
-      tips: ["💵 Gelir: +1 altın (engellenemez)", "🤝 Dış Yardım: +2 altın", "⚔️ Darbe: 7 altın = kart kaybettir"],
+      tips: [l10n.onboardingBasicMovesTip1, l10n.onboardingBasicMovesTip2, l10n.onboardingBasicMovesTip3],
     ),
     OnboardingPage(
       icon: Character.duke.icon,
-      title: "DÜK",
-      titleHighlight: "Kartı",
-      description: "Para imparatoru!\nVergilerle zenginleş.",
+      title: l10n.onboardingDukeTitle,
+      titleHighlight: l10n.onboardingDukeHighlight,
+      description: l10n.onboardingDukeDesc,
       color: Character.duke.color,
-      tips: ["💰 Vergi: +3 altın al", "🛡️ Dış Yardımı engelle", "⚠️ Herkes iddia edebilir!"],
+      tips: [l10n.onboardingDukeTip1, l10n.onboardingDukeTip2, l10n.onboardingDukeTip3],
     ),
     OnboardingPage(
       icon: Character.assassin.icon,
-      title: "SUİKASTÇI",
-      titleHighlight: "Kartı",
-      description: "Gölgelerin efendisi.\n3 altınla öldür!",
+      title: l10n.onboardingAssassinTitle,
+      titleHighlight: l10n.onboardingAssassinHighlight,
+      description: l10n.onboardingAssassinDesc,
       color: Character.assassin.color,
-      tips: ["🗡️ Suikast: 3 altın öde", "⚡ Darbe'den ucuz", "🛡️ Kontes engelleyebilir"],
+      tips: [l10n.onboardingAssassinTip1, l10n.onboardingAssassinTip2, l10n.onboardingAssassinTip3],
     ),
     OnboardingPage(
       icon: Character.captain.icon,
-      title: "YÜZBAŞI",
-      titleHighlight: "Kartı",
-      description: "Deniz korsanı!\nRakiplerden çal!",
+      title: l10n.onboardingCaptainTitle,
+      titleHighlight: l10n.onboardingCaptainHighlight,
+      description: l10n.onboardingCaptainDesc,
       color: Character.captain.color,
-      tips: ["💰 Çalma: Rakipten 2 altın", "🛡️ Çalmayı engelle", "⚔️ Saldırı + Savunma"],
+      tips: [l10n.onboardingCaptainTip1, l10n.onboardingCaptainTip2, l10n.onboardingCaptainTip3],
     ),
     OnboardingPage(
       icon: Icons.gavel,
-      title: "Meydan",
-      titleHighlight: "Okuma!",
-      description: "Blöf yakaladın mı?\nMeydan oku ve kanıtla!",
+      title: l10n.onboardingChallengeTitle,
+      titleHighlight: l10n.onboardingChallengeHighlight,
+      description: l10n.onboardingChallengeDesc,
       color: Colors.red,
-      tips: ["❓ Her iddiaya meydan oku", "✅ Haklı = Blöf yapan kaybeder", "❌ Haksız = Sen kaybedersin"],
+      tips: [l10n.onboardingChallengeTip1, l10n.onboardingChallengeTip2, l10n.onboardingChallengeTip3],
     ),
     OnboardingPage(
       icon: Icons.emoji_events,
-      title: "Artık",
-      titleHighlight: "Hazırsın!",
-      description: "VIRELON ustası olmak için\noynarken öğren!",
+      title: l10n.onboardingReadyTitle,
+      titleHighlight: l10n.onboardingReadyHighlight,
+      description: l10n.onboardingReadyDesc,
       color: Colors.green,
-      tips: ["🏆 Son kalan kazanır", "🧠 Strateji & Blöf dengesi", "🎮 Hadi başlayalım!"],
+      tips: [l10n.onboardingReadyTip1, l10n.onboardingReadyTip2, l10n.onboardingReadyTip3],
     ),
   ];
+  }
 
-  void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
+  void _nextPage(BuildContext context) {
+    final pages = _getPages(context);
+    if (_currentPage < pages.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeOutCubic,
@@ -111,7 +116,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final page = _pages[_currentPage];
+    final pages = _getPages(context);
+    final page = pages[_currentPage];
     
     return Scaffold(
       body: Stack(
@@ -147,7 +153,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: TextButton(
                       onPressed: _finishOnboarding,
                       child: Text(
-                        'Atla',
+                        AppLocalizations.of(context)!.skip,
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.9),
                           fontSize: 16,
@@ -163,9 +169,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: PageView.builder(
                     controller: _pageController,
                     onPageChanged: (index) => setState(() => _currentPage = index),
-                    itemCount: _pages.length,
+                    itemCount: pages.length,
                     itemBuilder: (context, index) {
-                      return _buildPageContent(_pages[index]);
+                      return _buildPageContent(pages[index], pages);
                     },
                   ),
                 ),
@@ -253,7 +259,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
   }
 
-  Widget _buildPageContent(OnboardingPage page) {
+  Widget _buildPageContent(OnboardingPage page, List<OnboardingPage> pages) {
     return Column(
       children: [
         // Top section - Icon area
@@ -297,75 +303,86 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(32, 40, 32, 24),
-              child: Column(
-                children: [
-                  // Title
-                  RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
+                child: Column(
+                  children: [
+                    // Scrollable content area
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          children: [
+                            // Title
+                            RichText(
+                              textAlign: TextAlign.center,
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: "${page.title} ",
+                                    style: const TextStyle(color: Color(0xFF1A1A1A)),
+                                  ),
+                                  TextSpan(
+                                    text: page.titleHighlight,
+                                    style: TextStyle(color: page.color),
+                                  ),
+                                ],
+                              ),
+                            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
+
+                            const SizedBox(height: 16),
+
+                            // Description
+                            Text(
+                              page.description,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey.shade600,
+                                height: 1.5,
+                              ),
+                            ).animate().fadeIn(delay: 300.ms),
+
+                            const SizedBox(height: 24),
+
+                            // Tips
+                            ...page.tips.asMap().entries.map((entry) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: page.color.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    entry.value,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade800,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ).animate().fadeIn(delay: Duration(milliseconds: 400 + entry.key * 100))
+                                    .slideX(begin: 0.1, end: 0),
+                              );
+                            }).toList(),
+                          ],
+                        ),
                       ),
-                      children: [
-                        TextSpan(
-                          text: "${page.title} ",
-                          style: const TextStyle(color: Color(0xFF1A1A1A)),
-                        ),
-                        TextSpan(
-                          text: page.titleHighlight,
-                          style: TextStyle(color: page.color),
-                        ),
-                      ],
                     ),
-                  ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
 
-                  const SizedBox(height: 16),
-
-                  // Description
-                  Text(
-                    page.description,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey.shade600,
-                      height: 1.5,
-                    ),
-                  ).animate().fadeIn(delay: 300.ms),
-
-                  const SizedBox(height: 24),
-
-                  // Tips
-                  ...page.tips.asMap().entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: page.color.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          entry.value,
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ).animate().fadeIn(delay: Duration(milliseconds: 400 + entry.key * 100))
-                          .slideX(begin: 0.1, end: 0),
-                    );
-                  }).toList(),
-
-                  const Spacer(),
+                    const SizedBox(height: 24),
 
                   // Page indicators
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
-                      _pages.length,
+                      pages.length,
                       (index) => AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -385,7 +402,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                   // Next button
                   GestureDetector(
-                    onTap: _nextPage,
+                    onTap: () => _nextPage(context),
                     child: Container(
                       width: 250,
                       height: 52,
@@ -404,7 +421,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          _currentPage == _pages.length - 1 ? 'BAŞLA!' : 'Devam Et',
+                          _currentPage == pages.length - 1 ? AppLocalizations.of(context)!.start : AppLocalizations.of(context)!.next,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,

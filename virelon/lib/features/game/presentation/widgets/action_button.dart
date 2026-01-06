@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../../../core/enums/game_enums.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ActionButton extends StatelessWidget {
   final GameAction action;
@@ -84,7 +85,7 @@ class ActionButton extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    action.displayName,
+                    _getActionDisplayName(context, action),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -109,8 +110,32 @@ class ActionButton extends StatelessWidget {
       case GameAction.tax: return Icons.account_balance;
       case GameAction.assassinate: return Icons.dangerous;
       case GameAction.steal: return Icons.pan_tool;
-      case GameAction.exchange: return Icons.shuffle;
+      case GameAction.exchange: return Icons.compare_arrows;
+      case GameAction.embezzle: return Icons.savings_outlined;
+      case GameAction.investigate: return Icons.search;
+      case GameAction.convertSelf: return Icons.change_circle;
+      case GameAction.convertOther: return Icons.volunteer_activism;
+      case GameAction.kayyum: return Icons.gavel;
+      case GameAction.manipulate: return Icons.newspaper;
       default: return Icons.circle;
+    }
+  }
+
+  String _getActionDisplayName(BuildContext context, GameAction action) {
+    switch (action) {
+      case GameAction.income: return AppLocalizations.of(context)!.income;
+      case GameAction.foreignAid: return AppLocalizations.of(context)!.foreignAid;
+      case GameAction.coup: return AppLocalizations.of(context)!.coup;
+      case GameAction.tax: return AppLocalizations.of(context)!.tax;
+      case GameAction.assassinate: return AppLocalizations.of(context)!.assassinate;
+      case GameAction.steal: return AppLocalizations.of(context)!.steal;
+      case GameAction.exchange: return AppLocalizations.of(context)!.exchange;
+      case GameAction.embezzle: return AppLocalizations.of(context)!.embezzle;
+      case GameAction.investigate: return AppLocalizations.of(context)!.investigate;
+      case GameAction.convertSelf: return AppLocalizations.of(context)!.convert;
+      case GameAction.convertOther: return AppLocalizations.of(context)!.pressure;
+      case GameAction.kayyum: return AppLocalizations.of(context)!.kayyum;
+      case GameAction.manipulate: return AppLocalizations.of(context)!.manipulate;
     }
   }
 }

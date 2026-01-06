@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:virelon/core/enums/game_enums.dart';
 import 'package:virelon/core/theme/app_theme.dart';
 import 'package:virelon/core/widgets/glass_container.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ReferenceSheet extends StatelessWidget {
   const ReferenceSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.95,
@@ -36,7 +38,7 @@ class ReferenceSheet extends StatelessWidget {
                     children: [
                       const Icon(Icons.table_chart_outlined, color: AppTheme.accent, size: 24),
                       const SizedBox(width: 12),
-                      Text("HAMLE TABLOSU", style: AppTheme.titleMedium.copyWith(fontSize: 20, letterSpacing: 2)),
+                      Text(l10n.actionTable, style: AppTheme.titleMedium.copyWith(fontSize: 20, letterSpacing: 2)),
                     ],
                   ),
                   IconButton(
@@ -53,10 +55,10 @@ class ReferenceSheet extends StatelessWidget {
               color: AppTheme.primary.withOpacity(0.1),
               child: Row(
                 children: [
-                  _headerCell("KARAKTER", 3),
-                  _headerCell("HAMLE", 3),
-                  _headerCell("ETKİ", 4),
-                  _headerCell("KARŞI", 2), 
+                   _headerCell(l10n.characterCol, 3),
+                   _headerCell(l10n.actionCol, 3),
+                   _headerCell(l10n.effectCol, 4),
+                   _headerCell(l10n.counterCol, 2), 
                 ],
               ),
             ),
@@ -67,25 +69,73 @@ class ReferenceSheet extends StatelessWidget {
                 child: Column(
                   children: [
                     // General
-                    _buildSectionTitle("GENEL"),
+                    _buildSectionTitle(l10n.generalSec),
                     ..._buildZebraRows([
-                      ["-", "GELİR", "1 Altın al.", "X"],
-                      ["-", "DIŞ YARDIM", "2 Altın al.", "Dük"],
-                      ["-", "DARBE", "7 Altın öde.\nKart açtır.", "X", "destructive"],
-                    ]),
+                      ["-", l10n.income.toUpperCase(), l10n.incomeDesc, "X"],
+                      ["-", l10n.foreignAid.toUpperCase(), l10n.foreignAidDesc, l10n.duke],
+                      ["-", l10n.coup.toUpperCase(), l10n.coupDesc, "X", "destructive"],
+                    ], context),
                     
                     // Characters
-                    _buildSectionTitle("KARAKTERLER"),
-                    ..._buildZebraRows([
-                      ["Dük", "VERGİ", "3 Altın al.", "X"],
-                      ["Suikastçı", "SUİKAST", "3 Altın öde.\nKart açtır.", "Kontes", "destructive"],
-                      ["Yüzbaşı", "ÇALMA", "2 Altın çal.", "Yüzbaşı / Elçi"],
-                      ["Elçi", "DEĞİŞİM", "Kart değiştir.", "X"],
-                      ["Kontes", "BLOK", "Suikastı önle.", "-"],
-                      ["Engizisyoncu", "SORGU", "Kart incele.", "-"],
-                      ["Avukat", "KAYYUM", "Elenen parası.", "Suikast"],
-                      ["Gazeteci", "MANİPÜLE", "Kart dağıt.", "Gazeteci"],
-                    ]),
+                    _buildSectionTitle(l10n.charactersSec),
+                    ...Character.values.map((char) {
+                      final name = char.localizedName(context);
+                      final abilities = char.localizedAbilities(context).join("\n");
+                      // Match old logic for counter/action
+                      String action = "";
+                      String effect = "";
+                      String counter = "X";
+                      bool isDestructive = false;
+
+                      switch (char) {
+                        case Character.duke:
+                          action = l10n.tax.toUpperCase();
+                          effect = l10n.taxDesc;
+                          break;
+                        case Character.assassin:
+                          action = l10n.assassinate.toUpperCase();
+                          effect = l10n.assassinateDesc;
+                          counter = l10n.contessa;
+                          isDestructive = true;
+                          break;
+                        case Character.captain:
+                          action = l10n.steal.toUpperCase();
+                          effect = l10n.stealDesc;
+                          counter = "${l10n.captain} / ${l10n.ambassador}";
+                          break;
+                        case Character.ambassador:
+                          action = l10n.exchange.toUpperCase();
+                          effect = l10n.exchangeDesc;
+                          break;
+                        case Character.countess:
+                          action = l10n.block.toUpperCase();
+                          effect = l10n.contessaDesc;
+                          counter = "-";
+                          break;
+                        case Character.inquisitor:
+                          action = l10n.investigate.toUpperCase();
+                          effect = l10n.investigateDesc;
+                          counter = "-";
+                          break;
+                        case Character.avukat:
+                          action = l10n.kayyum.toUpperCase();
+                          effect = l10n.kayyumDesc;
+                          counter = l10n.assassin;
+                          break;
+                        case Character.gazeteci:
+                          action = l10n.manipulate.toUpperCase();
+                          effect = l10n.manipulateDesc;
+                          counter = l10n.journalist;
+                          break;
+                      }
+
+                      return _buildRow(
+                        name, action, effect, counter,
+                        context: context,
+                        isDestructive: isDestructive,
+                        backgroundColor: Character.values.indexOf(char) % 2 == 0 ? Colors.white.withOpacity(0.04) : Colors.transparent
+                      );
+                    }).toList(),
                   ],
                 ),
               ),
@@ -96,12 +146,13 @@ class ReferenceSheet extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildZebraRows(List<List<dynamic>> rows) {
+  List<Widget> _buildZebraRows(List<List<dynamic>> rows, BuildContext context) {
     return List.generate(rows.length, (index) {
       final row = rows[index];
       final isDestructive = row.length > 4 && row[4] == "destructive";
       return _buildRow(
         row[0], row[1], row[2], row[3], 
+        context: context,
         isDestructive: isDestructive,
         backgroundColor: index % 2 == 0 ? Colors.transparent : Colors.white.withOpacity(0.04)
       );
@@ -140,8 +191,8 @@ class ReferenceSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(String char, String action, String effect, String counter, {bool isDestructive = false, required Color backgroundColor}) {
-    final charColor = _getCharColor(char);
+  Widget _buildRow(String char, String action, String effect, String counter, {required BuildContext context, bool isDestructive = false, required Color backgroundColor}) {
+    final charColor = _getCharColor(char, context);
     
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -153,7 +204,7 @@ class ReferenceSheet extends StatelessWidget {
             child: Row(
               children: [
                 if (char != "-") ...[
-                   Icon(_getCharIcon(char), size: 12, color: charColor),
+                   Icon(_getCharIcon(char, context), size: 12, color: charColor),
                    const SizedBox(width: 6),
                 ],
                 Expanded(
@@ -207,27 +258,29 @@ class ReferenceSheet extends StatelessWidget {
     );
   }
 
-  Color _getCharColor(String char) {
-    if (char.contains("Dük")) return const Color(0xFFD000FF);
-    if (char.contains("Suikastçı")) return const Color(0xFFFF2A68);
-    if (char.contains("Yüzbaşı")) return const Color(0xFF00E5FF);
-    if (char.contains("Elçi")) return const Color(0xFF00FF9D);
-    if (char.contains("Kontes")) return const Color(0xFFFF5E00);
-    if (char.contains("Engizisyoncu")) return const Color(0xFFFFD600);
-    if (char.contains("Avukat")) return Colors.brown;
-    if (char.contains("Gazeteci")) return Colors.teal;
+  Color _getCharColor(String char, BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (char.contains(l10n.duke)) return const Color(0xFFD000FF);
+    if (char.contains(l10n.assassin)) return const Color(0xFFFF2A68);
+    if (char.contains(l10n.captain)) return const Color(0xFF00E5FF);
+    if (char.contains(l10n.ambassador)) return const Color(0xFF00FF9D);
+    if (char.contains(l10n.contessa)) return const Color(0xFFFF5E00);
+    if (char.contains(l10n.inquisitor)) return const Color(0xFFFFD600);
+    if (char.contains(l10n.lawyer)) return Colors.brown;
+    if (char.contains(l10n.journalist)) return Colors.teal;
     return Colors.white;
   }
 
-  IconData _getCharIcon(String char) {
-    if (char.contains("Dük")) return Icons.diamond_outlined;
-    if (char.contains("Suikastçı")) return Icons.gps_fixed;
-    if (char.contains("Yüzbaşı")) return Icons.shield_outlined;
-    if (char.contains("Elçi")) return Icons.swap_horiz;
-    if (char.contains("Kontes")) return Icons.block;
-    if (char.contains("Engizisyoncu")) return Icons.remove_red_eye_outlined;
-    if (char.contains("Avukat")) return Icons.gavel;
-    if (char.contains("Gazeteci")) return Icons.newspaper;
+  IconData _getCharIcon(String char, BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (char.contains(l10n.duke)) return Icons.diamond_outlined;
+    if (char.contains(l10n.assassin)) return Icons.gps_fixed;
+    if (char.contains(l10n.captain)) return Icons.shield_outlined;
+    if (char.contains(l10n.ambassador)) return Icons.swap_horiz;
+    if (char.contains(l10n.contessa)) return Icons.block;
+    if (char.contains(l10n.inquisitor)) return Icons.remove_red_eye_outlined;
+    if (char.contains(l10n.lawyer)) return Icons.gavel;
+    if (char.contains(l10n.journalist)) return Icons.newspaper;
     return Icons.circle;
   }
 }

@@ -15,8 +15,9 @@ import '../widgets/reference_sheet.dart';
 import '../widgets/coin_display.dart';
 import 'package:virelon/features/game/domain/models/player_model.dart';
 import '../../data/services/lobby_service.dart';
-import '../../../tutorial_screen.dart';
-import '../../../onboarding_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:virelon/features/tutorial_screen.dart';
+import 'package:virelon/features/onboarding_screen.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({Key? key}) : super(key: key);
@@ -265,15 +266,44 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
   }
 
+  void _showExitDialog(BuildContext context, GameNotifier notifier) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(AppLocalizations.of(context)!.exitGame, style: AppTheme.headline.copyWith(fontSize: 20)),
+        content: Text(AppLocalizations.of(context)!.exitConfirm, style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocalizations.of(context)!.cancel, style: const TextStyle(color: Colors.white38)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.danger,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              notifier.reset(); // State'i sıfırla, setup'a dön
+            },
+            child: Text(AppLocalizations.of(context)!.exit, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _addPlayer() {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     if (_setupPlayers.any((p) => p.name == name)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu isim zaten var!")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.nameExists)));
       return;
     }
     if (_setupPlayers.length >= 8) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Maksimum 8 oyuncu!")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.maxPlayers)));
       return;
     }
 
@@ -347,10 +377,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         });
                       }
                     });
-                    return const Center(
+                    return Center(
                       child: Text(
-                        "Kartlar Dağıtılıyor...",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        AppLocalizations.of(context)!.cardsBeingDistributed,
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
                     );
                   }
@@ -406,6 +436,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   color: Colors.black.withOpacity(0.95), // Dark overlay
                   child: _buildShuffleAnimation(),
                 ).animate().fadeIn(duration: 300.ms),
+              ),
+
+            // Oyundan Çıkma Butonu (Sadece oyun aktifken)
+            if (gameState.players.isNotEmpty)
+              Positioned(
+                top: 40,
+                right: 16,
+                child: SafeArea(
+                  child: GestureDetector(
+                    onTap: () => _showExitDialog(context, notifier),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: const Icon(Icons.logout, color: Colors.white70, size: 20),
+                    ),
+                  ),
+                ),
               ),
           ],
         ),
@@ -483,8 +534,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
               const Icon(Icons.wifi, size: 30, color: Colors.cyan),
               const SizedBox(width: 12),
-              const Text(
-                "ONLINE OYNA",
+              Text(
+                AppLocalizations.of(context)!.onlinePlay,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -499,8 +550,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           // Hızlı Oyun
           _buildOnlineOption(
             icon: Icons.flash_on,
-            title: "HIZLI OYUN",
-            subtitle: "Rastgele oyuncularla anında eşleş",
+            title: AppLocalizations.of(context)!.quickPlay,
+            subtitle: AppLocalizations.of(context)!.quickPlayDesc,
             color: Colors.amber,
             onTap: () {
               setState(() {
@@ -516,8 +567,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           // Arkadaşlarla Oyna
           _buildOnlineOption(
             icon: Icons.group,
-            title: "ARKADAŞLARLA OYNA",
-            subtitle: "Oda oluştur veya koda katıl",
+            title: AppLocalizations.of(context)!.playWithFriends,
+            subtitle: AppLocalizations.of(context)!.playWithFriendsDesc,
             color: Colors.green,
             onTap: () {
               setState(() {
@@ -550,6 +601,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TutorialScreen()),
+              );
+            },
+            icon: Icon(Icons.help_outline, color: AppTheme.accent, size: 20),
+            label: Text(AppLocalizations.of(context)!.howToPlay, style: TextStyle(color: AppTheme.accent, fontSize: 13, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -638,7 +701,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           const SizedBox(height: 32),
           
           NeonButton(
-            label: "ELDEN ELE OYNA",
+            label: AppLocalizations.of(context)!.playLocal,
             isLarge: true,
             icon: Icons.phone_android,
             onTap: () {
@@ -647,7 +710,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
           const SizedBox(height: 12),
           NeonButton(
-            label: "ONLINE OYNA",
+            label: AppLocalizations.of(context)!.playOnline,
             icon: Icons.wifi,
             baseColor: Colors.cyan,
             onTap: () {
@@ -655,72 +718,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             },
           ),
           const SizedBox(height: 24),
-          
-          // Nasıl Oynanır Butonu
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TutorialScreen()),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.withOpacity(0.5)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.school, color: Colors.green, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "NASIL OYNANIR?", 
-                      style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const Icon(Icons.play_circle_outline, color: Colors.green, size: 20),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-
-          // Oyun Tanıtımı (Onboarding) Butonu
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.purple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.purple.withOpacity(0.5)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.rocket_launch, color: Colors.purple, size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      "OYUNU TANIT", 
-                      style: TextStyle(color: Colors.purple, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward, color: Colors.purple, size: 20),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 12),
           
           // Tema Seçme Butonu
           GestureDetector(
@@ -733,15 +730,70 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 border: Border.all(color: Colors.white24),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.palette, color: AppTheme.accent, size: 20),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "KART TEMASI SEÇ", 
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ),
+                  Text(AppLocalizations.of(context)!.selectTheme, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  const Spacer(),
+                  const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          // Nasıl Oynanır Butonu
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TutorialScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.help_outline, color: AppTheme.accent, size: 20),
+                  const SizedBox(width: 8),
+                  Text(AppLocalizations.of(context)!.howToPlay, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  const Spacer(),
+                  const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Onboarding (Oyunu Tanıt) Butonu
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.accent, size: 20),
+                  const SizedBox(width: 8),
+                  Text(AppLocalizations.of(context)!.introduce, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  const Spacer(),
                   const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
                 ],
               ),
@@ -840,7 +892,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                _isQuickPlayMode ? "HIZLI OYUN LOBİSİ" : "LOBİDE BEKLENİYOR", 
+                _isQuickPlayMode ? AppLocalizations.of(context)!.waitingInLobby : AppLocalizations.of(context)!.waitingInLobby, 
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
               ),
               if (!_isQuickPlayMode) ...[ // Sadece arkadaşlarla oyna modunda kodu göster
@@ -854,7 +906,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text("Bu kodu arkadaşlarınla paylaş!", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                Text(AppLocalizations.of(context)!.shareCodeWithFriends, style: const TextStyle(color: Colors.white54, fontSize: 10)),
               ],
               const SizedBox(height: 24),
               Text("OYUNCULAR (${gameState.players.length}/8)", style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -877,7 +929,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               const SizedBox(height: 24),
               if (isHost && gameState.players.length >= 3) ...[
                 NeonButton(
-                  label: "OYUNU BAŞLAT",
+                  label: AppLocalizations.of(context)!.startGame,
                   icon: Icons.play_arrow,
                   baseColor: Colors.green,
                   isLarge: true,
@@ -885,19 +937,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
               ] else if (isHost) ...[
                 Text(
-                  "En az 3 oyuncu gerekiyor... (${gameState.players.length}/3)",
+                  "${AppLocalizations.of(context)!.minPlayers} (${gameState.players.length}/3)",
                   style: const TextStyle(color: Colors.white38),
                 ),
               ] else ...[
-                const Text(
-                  "Yönetici oyunu başlatacak...",
+                Text(
+                  AppLocalizations.of(context)!.waitingForOthers,
                   style: TextStyle(color: Colors.white38),
                 ),
               ],
               const SizedBox(height: 16),
               TextButton.icon(
                 icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-                label: const Text("LOBİDEN AYRIL", style: TextStyle(color: Colors.redAccent)),
+                label: Text(AppLocalizations.of(context)!.leaveLobby, style: const TextStyle(color: Colors.redAccent)),
                 onPressed: () async {
                   // Firebase'den odadan ayrıl
                   if (_currentRoomId != null && _myPlayerId != null) {
@@ -940,7 +992,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
               const Icon(Icons.flash_on, color: Colors.amber, size: 24),
               const SizedBox(width: 8),
-              const Text("HIZLI OYUN", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              Text(AppLocalizations.of(context)!.quickPlay, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             ],
           ),
           const SizedBox(height: 24),
@@ -948,8 +1000,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             controller: _nameController,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: "OYUNCU ADI",
-              hintText: "İsmini gir...",
+              labelText: AppLocalizations.of(context)!.playerName,
+              hintText: AppLocalizations.of(context)!.enterName,
               hintStyle: const TextStyle(color: Colors.white30),
               labelStyle: const TextStyle(color: Colors.white54),
               filled: true,
@@ -967,12 +1019,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               border: Border.all(color: Colors.amber.withOpacity(0.3)),
             ),
             child: Row(
-              children: const [
+              children: [
                 Icon(Icons.info_outline, color: Colors.amber, size: 16),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Müsait bir odaya otomatik katılacaksın veya yeni oda oluşturulacak.",
+                    AppLocalizations.of(context)!.autoMatchInfo,
                     style: TextStyle(color: Colors.white54, fontSize: 11),
                   ),
                 ),
@@ -981,17 +1033,17 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
           const SizedBox(height: 24),
           _isJoining
-              ? const Center(
+              ? Center(
                   child: Column(
                     children: [
                       CircularProgressIndicator(color: Colors.amber),
                       SizedBox(height: 12),
-                      Text("Oyuncu aranıyor...", style: TextStyle(color: Colors.white54)),
+                      Text(AppLocalizations.of(context)!.searchingPlayers, style: const TextStyle(color: Colors.white54)),
                     ],
                   ),
                 )
               : NeonButton(
-                  label: "HIZLI EŞLEŞ",
+                  label: AppLocalizations.of(context)!.quickMatch,
                   icon: Icons.flash_on,
                   baseColor: Colors.amber,
                   isLarge: true,
@@ -1021,7 +1073,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
               const Icon(Icons.group, color: Colors.green, size: 24),
               const SizedBox(width: 8),
-              const Text("ARKADAŞLARLA OYNA", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(AppLocalizations.of(context)!.playWithFriends, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
             ],
           ),
           const SizedBox(height: 24),
@@ -1029,8 +1081,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             controller: _nameController,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              labelText: "OYUNCU ADI",
-              hintText: "İsmini gir...",
+              labelText: AppLocalizations.of(context)!.playerName,
+              hintText: AppLocalizations.of(context)!.enterName,
               hintStyle: const TextStyle(color: Colors.white30),
               labelStyle: const TextStyle(color: Colors.white54),
               filled: true,
@@ -1043,7 +1095,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _isJoining
               ? const Center(child: CircularProgressIndicator(color: Colors.cyan))
               : NeonButton(
-                  label: "YENİ ODA OLUŞTUR",
+                  label: AppLocalizations.of(context)!.createNewRoom,
                   icon: Icons.add_circle,
                   baseColor: Colors.cyan,
                   onTap: () => _createOnlineRoom(notifier),
@@ -1056,8 +1108,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             style: const TextStyle(color: Colors.white, letterSpacing: 3, fontWeight: FontWeight.bold),
             textCapitalization: TextCapitalization.characters,
             decoration: InputDecoration(
-              labelText: "ODA KODU",
-              hintText: "6 haneli kod",
+              labelText: AppLocalizations.of(context)!.roomCode,
+              hintText: AppLocalizations.of(context)!.sixDigitCode,
               hintStyle: const TextStyle(color: Colors.white30, letterSpacing: 0),
               labelStyle: const TextStyle(color: Colors.white54, letterSpacing: 0),
               filled: true,
@@ -1070,7 +1122,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _isJoining
               ? const Center(child: CircularProgressIndicator(color: Colors.orange))
               : NeonButton(
-                  label: "KOD İLE KATIL",
+                  label: AppLocalizations.of(context)!.codeJoin,
                   icon: Icons.login,
                   baseColor: Colors.orange,
                   onTap: () => _joinOnlineRoom(notifier),
@@ -1089,7 +1141,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Lütfen bir isim girin!"))
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterName))
       );
       return;
     }
@@ -1113,8 +1165,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         if (mounted) {
           setState(() => _isJoining = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Şu an müsait oda yok! Lütfen biraz bekleyin."),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.noRoomsAvailable),
               backgroundColor: Colors.orange,
             )
           );
@@ -1159,7 +1211,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Lütfen bir isim girin!"))
+        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterName))
       );
       return;
     }
@@ -1331,6 +1383,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 onPressed: () => setState(() => _isSetupMode = false)
               ),
               Text("OYUN KURULUMU", style: AppTheme.titleMedium),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.help_outline, color: AppTheme.accent),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TutorialScreen()),
+                  );
+                },
+                tooltip: AppLocalizations.of(context)!.howToPlay,
+              ),
+              IconButton(
+                icon: const Icon(Icons.info_outline, color: AppTheme.accent),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+                  );
+                },
+                tooltip: AppLocalizations.of(context)!.introduce,
+              ),
             ],
           ),
           
@@ -1652,7 +1725,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           Opacity(
             opacity: _setupPlayers.length >= 3 ? 1.0 : 0.5,
             child: NeonButton(
-              label: "OYUNU BAŞLAT (${_setupPlayers.length})",
+              label: "${AppLocalizations.of(context)!.startGame} (${_setupPlayers.length})",
               isLarge: true,
               icon: Icons.play_arrow,
               baseColor: AppTheme.success,
@@ -1680,42 +1753,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               } : () {},
             ),
           ),
-          
-          // En az 3 kişi uyarısı
-          if (_setupPlayers.length < 3) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.5)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "Oyun başlatmak için en az 3 oyuncu gereklidir (${3 - _setupPlayers.length} kişi daha ekle)",
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     ).animate().fadeIn();
   }
 
   Widget _buildGameUI(BuildContext context, GameState gameState, GameNotifier notifier) {
-    final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId, orElse: () => gameState.players.first);
+    final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
     
     return SingleChildScrollView(
       child: ConstrainedBox(
@@ -2265,7 +2309,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     if (challengedId == null) return const SizedBox.shrink();
     
-    final challenged = state.players.firstWhere((p) => p.id == challengedId, orElse: () => state.players.first);
+    final challenged = state.players.firstWhere((p) => p.id == challengedId);
     final claimedChar = state.claimedCharacter;
     final isEmbezzle = state.currentAction == GameAction.embezzle;
     
@@ -2614,7 +2658,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // --- Turn Transition UI ---
   Widget _buildTurnTransitionUI(GameState state, GameNotifier notifier) {
     // Find who's next (currentPlayer)
-    final nextPlayer = state.players.firstWhere((p) => p.id == state.currentPlayerId, orElse: () => state.players.first);
+    final nextPlayer = state.players.firstWhere((p) => p.id == state.currentPlayerId);
     
     return Center(
       child: Padding(
@@ -2622,67 +2666,42 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Telefon ikonu
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primary.withOpacity(0.1),
-                border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
-              ),
-              child: const Icon(Icons.phonelink_ring, size: 60, color: Colors.white70),
-            ).animate(onPlay: (c) => c.repeat())
-                .shimmer(duration: 2.seconds, color: AppTheme.primary.withOpacity(0.3)),
+            const Icon(Icons.phonelink_lock, size: 80, color: Colors.white54)
+                .animate(onPlay: (c) => c.repeat())
+                .shimmer(duration: 2.seconds),
             
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
             
             GlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+              padding: const EdgeInsets.all(32),
               isGlowing: true,
               borderColor: AppTheme.primary,
               child: Column(
                 children: [
-                   Text(
+                   const Text(
                      "SIRADAKİ OYUNCU",
-                     style: AppTheme.bodySmall.copyWith(
-                       letterSpacing: 3,
-                       color: Colors.white54,
-                     ),
+                     style: TextStyle(color: Colors.white70, letterSpacing: 2),
                    ),
-                   const SizedBox(height: 12),
+                   const SizedBox(height: 16),
                    
                    Text(
                      nextPlayer.name.toUpperCase(),
-                     style: AppTheme.playerName.copyWith(
-                       fontSize: 32, 
-                       color: AppTheme.primary,
-                       letterSpacing: 2,
-                     ),
+                     style: AppTheme.headline.copyWith(color: AppTheme.primary, fontSize: 40),
                      textAlign: TextAlign.center,
                    ),
                    
-                   const SizedBox(height: 24),
+                   const SizedBox(height: 32),
                    
-                   Container(
-                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                     decoration: BoxDecoration(
-                       color: Colors.white.withOpacity(0.05),
-                       borderRadius: BorderRadius.circular(8),
-                     ),
-                     child: Text(
-                       "Lütfen cihazı bu oyuncuya verin.\nHazır olduğunda butona bas.",
-                       textAlign: TextAlign.center,
-                       style: AppTheme.body.copyWith(
-                         color: Colors.white70,
-                         height: 1.6,
-                       ),
-                     ),
+                   const Text(
+                     "Lütfen cihazı bu oyuncuya verin.\nHazır olduğunda butona bas.",
+                     textAlign: TextAlign.center,
+                     style: TextStyle(color: Colors.white54, height: 1.5),
                    ),
                    
                    const SizedBox(height: 32),
                    
                    NeonButton(
-                     label: "HAZIRIM, BAŞLA",
+                     label: AppLocalizations.of(context)!.tapToStart,
                      icon: Icons.play_circle_fill,
                      baseColor: AppTheme.primary,
                      isLarge: true,
@@ -2702,16 +2721,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildActionPendingUI(GameState state, GameNotifier notifier) {
     if (state.actionInitiatorId == null) return const SizedBox.shrink();
 
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId, orElse: () => state.players.first);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId);
     // UI'ı gösteren kişinin ID'si (Genelde sıradaki oyuncu ama burada tepki veren kişi olmalı)
     // Şimdilik currentPlayer'ı alıyoruz ama logic olarak hatalı olabilir Pass&Play'de.
     // Ancak Single Device olduğu için ekranı o an elinde tutan kişi "Current" kabul edilir.
     // VE bloklama hakkı sadece ilgili kişiye gösterilmeli.
-    final currentPlayerId = ref.read(gameStateProvider).currentPlayerId;
-    final currentUser = state.players.firstWhere(
-      (p) => p.id == currentPlayerId, 
-      orElse: () => state.players.first
-    );
+    final currentUser = state.players.firstWhere((p) => p.id == ref.read(gameStateProvider).currentPlayerId); // Aslında bu state.currentPlayerId değil, cihazın sahibi.
     
     // Doğru mantık: PassAndPlay'de actionPending ekranı geldiğinde cihazı hedef kişiye vermeli mi?
     // Veya herkes sırayla bakmalı mı?
@@ -2975,30 +2990,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Resolution (Lose Card) UI ---
   Widget _buildResolutionUI(GameState state, GameNotifier notifier) {
-    // Yeni merkezi victimId getter'ını kullan
+    // Challenge sonucu: blockerId = kaybeden kişi
     final victimId = state.victimId;
-    if (victimId == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text("Kurban belirlenemedi", style: TextStyle(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 8),
-            Text("blockerId: ${state.blockerId}\nactionTargetId: ${state.actionTargetId}", 
-                style: const TextStyle(color: Colors.white54, fontSize: 12)),
-            const SizedBox(height: 24),
-            NeonButton(
-              label: "DEVAM ET",
-              icon: Icons.arrow_forward,
-              baseColor: AppTheme.primary,
-              onTap: () => notifier.passAction(),
-            ),
-          ],
-        ),
-      );
-    }
+    if (victimId == null) return const Center(child: Text("Hata: Kurban bulunamadı"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first); 
     
@@ -3062,30 +3056,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Victim Handover UI (Telefonu kurbana ver) ---
   Widget _buildVictimHandoverUI(GameState state, GameNotifier notifier) {
-    // Yeni merkezi victimId getter'ını kullan
+    // Challenge sonucu: blockerId = kaybeden kişi
     final victimId = state.victimId;
-    if (victimId == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text("Kurban ID belirlenemedi", style: TextStyle(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 8),
-            Text("Phase: ${state.phase.name}\nblockerId: ${state.blockerId}\nactionTargetId: ${state.actionTargetId}", 
-                style: const TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            NeonButton(
-              label: "SİRAYA GEÇ",
-              icon: Icons.skip_next,
-              baseColor: AppTheme.primary,
-              onTap: () => notifier.passAction(),
-            ),
-          ],
-        ),
-      );
-    }
+    if (victimId == null) return const Center(child: Text("Hata: Kurban ID yok"));
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first);
     final isCoup = state.currentAction == GameAction.coup;
@@ -3096,85 +3069,41 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-             // Telefon ikonu
-             Container(
-               padding: const EdgeInsets.all(20),
-               decoration: BoxDecoration(
-                 shape: BoxShape.circle,
-                 color: AppTheme.danger.withOpacity(0.1),
-                 border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
-               ),
-               child: Icon(Icons.phone_android, size: 50, color: AppTheme.danger),
-             ).animate(onPlay: (c) => c.repeat(reverse: true))
+             Icon(Icons.phone_android, size: 80, color: AppTheme.danger)
+                 .animate(onPlay: (c) => c.repeat(reverse: true))
                  .scale(begin: const Offset(1,1), end: const Offset(1.1, 1.1), duration: 1.seconds),
              
              const SizedBox(height: 32),
              
              GlassContainer(
-               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+               padding: const EdgeInsets.all(32),
                borderColor: AppTheme.danger,
                isGlowing: true,
                child: Column(
                  children: [
-                   Text(
-                     isCoup ? "SALDIRI GERÇEKLEŞTİ!" : "MEYDAN OKUMA SONUCU", 
-                     style: AppTheme.bodySmall.copyWith(
-                       color: Colors.white60,
-                       letterSpacing: 2,
-                     ),
-                   ),
-                   const SizedBox(height: 12),
+                   Text(isCoup ? "SALDIRI GERÇEKLEŞTİ!" : "MEYDAN OKUMA SONUCU:", style: AppTheme.chip.copyWith(color: Colors.white70)),
+                   const SizedBox(height: 16),
                    Text(
                      "BİRİ KART KAYBEDECEK!",
-                     style: AppTheme.titleLarge.copyWith(
-                       color: AppTheme.danger, 
-                       fontSize: 24,
-                     ),
+                     style: AppTheme.headline.copyWith(color: AppTheme.danger, fontSize: 28),
                      textAlign: TextAlign.center,
                    ),
                    const SizedBox(height: 24),
                    
-                   Container(
-                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                     decoration: BoxDecoration(
-                       color: AppTheme.danger.withOpacity(0.1),
-                       borderRadius: BorderRadius.circular(12),
-                       border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
-                     ),
-                     child: Column(
-                       children: [
-                         Text(
-                           "Telefonu",
-                           style: AppTheme.body.copyWith(color: Colors.white70),
-                         ),
-                         const SizedBox(height: 4),
-                         Text(
-                           victim.name.toUpperCase(),
-                           style: AppTheme.playerName.copyWith(
-                             color: AppTheme.danger,
-                             fontSize: 26,
-                           ),
-                         ),
-                         const SizedBox(height: 4),
-                         Text(
-                           "adlı oyuncuya verin",
-                           style: AppTheme.body.copyWith(color: Colors.white70),
-                         ),
-                       ],
-                     ),
+                   Text(
+                     "Telefonu\n${victim.name.toUpperCase()}\nadlı oyuncuya verin.",
+                     textAlign: TextAlign.center,
+                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                    ),
                    
                    const SizedBox(height: 16),
                    Text(
                     state.lastLog,
                     textAlign: TextAlign.center,
-                    style: AppTheme.bodySmall.copyWith(
-                      color: Colors.white54,
-                      fontStyle: FontStyle.italic,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                    ),
 
-                   const SizedBox(height: 28),
+                   const SizedBox(height: 32),
                    
                    NeonButton(
                      label: "BEN ${victim.name.toUpperCase()}, HAZIRIM",
@@ -3332,28 +3261,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Çoklu Kayyum UI
   Widget _buildKayyumBiddingUI(GameState state, GameNotifier notifier) {
-    // actionTargetId null ise hata durumu
-    if (state.actionTargetId == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text("Kayyum hedefi belirlenemedi", style: TextStyle(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 24),
-            NeonButton(
-              label: "GERİ DÖN",
-              icon: Icons.arrow_back,
-              baseColor: AppTheme.primary,
-              onTap: () => notifier.passAction(),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    final victim = state.players.firstWhere((p) => p.id == state.actionTargetId, orElse: () => state.players.first);
+    final victim = state.players.firstWhere((p) => p.id == state.actionTargetId);
     final claimants = state.kayyumClaimants;
     
     // Sıradaki bidder'ı bul
@@ -3364,7 +3272,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return _buildKayyumFinalizeUI(state, notifier, victim, claimants);
     }
     
-    final currentBidder = state.players.firstWhere((p) => p.id == nextBidderId, orElse: () => state.players.first);
+    final currentBidder = state.players.firstWhere((p) => p.id == nextBidderId);
     bool isClaimant = claimants.contains(currentBidder.id);
 
     return Container(
@@ -3672,14 +3580,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final cards = state.manipulationCards;
     if (cards.length < 3) return Center(child: Text("Hata: Yeterli kart yok (${cards.length}/3)"));
     
-    // Null check ekle
-    if (state.actionTargetId == null || state.actionInitiatorId == null) {
-      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
-    }
-    
     final targetId = state.actionTargetId!;
-    final target = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!, orElse: () => state.players.first);
+    final target = state.players.firstWhere((p) => p.id == targetId);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
     
     // Pool: [Deste kartı (AÇIK), Ali kart 1 (KAPALI), Ali kart 2 (KAPALI)]
     final deckCard = cards[0]; // AÇIK
@@ -4305,15 +4208,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Cihaz Devretme Ekranı (Investigation Handover)
   Widget _buildInvestigationHandoverUI(GameState state, GameNotifier notifier, {required bool isReturn}) {
-    // Null check ekle
-    if (state.actionTargetId == null || state.actionInitiatorId == null) {
-      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
-    }
-    
     final targetId = state.actionTargetId!;
     final initiatorId = state.actionInitiatorId!;
-    final targetPlayer = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
-    final initiatorPlayer = state.players.firstWhere((p) => p.id == initiatorId, orElse: () => state.players.first);
+    final targetPlayer = state.players.firstWhere((p) => p.id == targetId);
+    final initiatorPlayer = state.players.firstWhere((p) => p.id == initiatorId);
     
     // isReturn: true ise sorgulayana geri ver, false ise hedefe ver
     final nextPlayerName = isReturn ? initiatorPlayer.name : targetPlayer.name;
@@ -4435,14 +4333,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Hedef Oyuncu Kart Seçimi (Investigation)
   Widget _buildInvestigationCardSelectUI(GameState state, GameNotifier notifier) {
-    // Null check ekle
-    if (state.actionTargetId == null || state.actionInitiatorId == null) {
-      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
-    }
-    
     final targetId = state.actionTargetId!;
-    final targetPlayer = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!, orElse: () => state.players.first);
+    final targetPlayer = state.players.firstWhere((p) => p.id == targetId);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
     
     return Container(
       decoration: BoxDecoration(
@@ -4565,15 +4458,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // Engizisyoncu Sorgulama UI
   Widget _buildInvestigationUI(GameState state, GameNotifier notifier) {
     final revealedCard = state.investigatedCard;
-    
-    // Null check ekle
-    if (state.actionTargetId == null || state.actionInitiatorId == null) {
-      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
-    }
-    
     final targetId = state.actionTargetId!;
-    final target = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!, orElse: () => state.players.first);
+    final target = state.players.firstWhere((p) => p.id == targetId);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
     
     if (revealedCard == null) return const SizedBox.shrink();
 
@@ -4664,16 +4551,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                    borderRadius: BorderRadius.circular(8),
                    border: Border.all(color: Colors.white10),
                  ),
-                 child: Column(
-                   children: [
-                      Text("💡 TAKTİK İPUCU", style: AppTheme.chip.copyWith(color: Colors.amber)),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Eğer rakip blöf yapıyorsa, kartını değiştirerek\nblöfünü bozabilirsin!",
-                        style: AppTheme.body.copyWith(fontSize: 11, color: Colors.white60),
-                        textAlign: TextAlign.center,
-                      ),
-                   ],
+                  child: Column(
+                    children: [
+                       Builder(builder: (context) {
+                         final l10n = AppLocalizations.of(context)!;
+                         return Column(
+                           children: [
+                             Text(l10n.tacticalTip, style: AppTheme.chip.copyWith(color: Colors.amber)),
+                             const SizedBox(height: 8),
+                             Text(
+                               l10n.tacticalTipDesc,
+                               style: AppTheme.body.copyWith(fontSize: 11, color: Colors.white60),
+                               textAlign: TextAlign.center,
+                             ),
+                           ],
+                         );
+                       }),
+                    ],
                  ),
                ),
             ],
@@ -4685,6 +4579,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // --- GAME OVER / VICTORY SCREEN ---
   Widget _buildGameOverUI(GameState state, GameNotifier notifier) {
+    final l10n = AppLocalizations.of(context)!;
     final winner = state.players.firstWhere((p) => p.isAlive, orElse: () => state.players.first);
     
     return Center(
@@ -4712,7 +4607,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               child: Column(
                 children: [
                   Text(
-                    "🎉 TEBRİKLER! 🎉",
+                    l10n.congratulations,
                     style: AppTheme.headline.copyWith(
                       color: Colors.amber,
                       fontSize: 32,
@@ -4723,8 +4618,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   const SizedBox(height: 24),
                   
                   Text(
-                    "OYUNU KAZANAN",
-                    style: TextStyle(
+                    l10n.gameWinner,
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
                       letterSpacing: 3,
@@ -5117,7 +5012,7 @@ class _ThemeSelectorScreenState extends State<_ThemeSelectorScreen> {
                     Icon(Icons.swipe, color: Colors.white24, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      "← Kartları kaydır →",
+                      AppLocalizations.of(context)!.swipeCards,
                       style: TextStyle(color: Colors.white24, fontSize: 10),
                     ),
                   ],

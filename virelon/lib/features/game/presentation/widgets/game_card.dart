@@ -4,6 +4,7 @@ import 'package:virelon/core/enums/game_enums.dart';
 import 'package:virelon/core/theme/app_theme.dart';
 import 'package:virelon/core/widgets/glass_container.dart';
 import 'package:virelon/core/providers/theme_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class GameCardWidget extends ConsumerWidget {
   final Character character;
@@ -40,7 +41,7 @@ class GameCardWidget extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
               // BoxShadow removed as per user request to remove "phosphorescent" glow
             ),
-            child: isRevealed ? _buildRevealed(cardTheme) : _buildHidden(),
+            child: isRevealed ? _buildRevealed(context, cardTheme) : _buildHidden(),
           ),
           if (showAbilities && isRevealed) ...[
             const SizedBox(height: 6),
@@ -54,12 +55,12 @@ class GameCardWidget extends ConsumerWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: character.abilities.map((ability) => 
+                children: character.localizedAbilities(context).map((ability) => 
                   Padding(
                     padding: const EdgeInsets.only(bottom: 2),
                     child: Text(
                       ability,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 8,
                         height: 1.1,
@@ -75,7 +76,7 @@ class GameCardWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildRevealed(GameCardTheme cardTheme) {
+  Widget _buildRevealed(BuildContext context, GameCardTheme cardTheme) {
     final color = _getColor(character);
     // Tema klasörüne göre asset path
     final assetPath = 'assets/images/${cardTheme.folderName}/${character.name}.png';
@@ -147,7 +148,7 @@ class GameCardWidget extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Text(
-                      character.displayName.toUpperCase(),
+                      _getDisplayName(context, character).toUpperCase(),
                       style: AppTheme.body.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -165,7 +166,7 @@ class GameCardWidget extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     color: Colors.black54,
                     child: Text(
-                      _getActionText(character),
+                      _getActionText(context, character),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: color,
@@ -233,16 +234,20 @@ class GameCardWidget extends ConsumerWidget {
     }
   }
 
-  String _getActionText(Character char) {
+  String _getDisplayName(BuildContext context, Character char) {
+    return char.localizedName(context);
+  }
+
+  String _getActionText(BuildContext context, Character char) {
     switch (char) {
-      case Character.duke: return "VERGİ";
-      case Character.assassin: return "SUİKAST";
-      case Character.captain: return "ÇALMA";
-      case Character.countess: return "BLOK";
-      case Character.ambassador: return "DEĞİŞİM";
-      case Character.inquisitor: return "SORGU";
-      case Character.avukat: return "KAYYUM";
-      case Character.gazeteci: return "MANİPÜLE";
+      case Character.duke: return AppLocalizations.of(context)!.taxUpperCase;
+      case Character.assassin: return AppLocalizations.of(context)!.assassinateUpperCase;
+      case Character.captain: return AppLocalizations.of(context)!.stealUpperCase;
+      case Character.countess: return AppLocalizations.of(context)!.blockUpperCase;
+      case Character.ambassador: return AppLocalizations.of(context)!.exchangeUpperCase;
+      case Character.inquisitor: return AppLocalizations.of(context)!.investigateUpperCase;
+      case Character.avukat: return AppLocalizations.of(context)!.trusteeUpperCase;
+      case Character.gazeteci: return AppLocalizations.of(context)!.manipulateUpperCase;
     }
   }
 }
