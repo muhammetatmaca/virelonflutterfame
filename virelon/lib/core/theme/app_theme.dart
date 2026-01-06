@@ -31,42 +31,95 @@ class AppTheme {
     ],
   );
 
-  // Text Styles
-  static TextStyle get titleLarge => GoogleFonts.orbitron(
-    fontSize: 32,
-    fontWeight: FontWeight.w900,
+  // === MODERN TEXT STYLES ===
+  
+  // Ana başlık - Büyük ve etkileyici (Oyun adı, kazanan ekranı vb.)
+  static TextStyle get headline => GoogleFonts.exo2(
+    fontSize: 40,
+    fontWeight: FontWeight.w800,
     color: Colors.white,
-    letterSpacing: 2,
-    shadows: [
-      const BoxShadow(color: primary, blurRadius: 20, spreadRadius: 0),
-    ]
+    letterSpacing: 3,
+  );
+
+  // Büyük başlık - Bölüm başlıkları
+  static TextStyle get titleLarge => GoogleFonts.outfit(
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+    letterSpacing: 1,
   );
   
-  static TextStyle get headline => GoogleFonts.orbitron(
-    fontSize: 40,
-    fontWeight: FontWeight.w900,
-    color: Colors.white,
-    letterSpacing: 4,
-    shadows: [
-      const BoxShadow(color: accent, blurRadius: 24, spreadRadius: 2),
-    ]
-  );
-
-  static TextStyle get titleMedium => GoogleFonts.rajdhani(
-    fontSize: 24,
-    fontWeight: FontWeight.bold,
+  // Orta başlık - Kart isimleri, oyuncu isimleri
+  static TextStyle get titleMedium => GoogleFonts.outfit(
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
     color: Colors.white,
   );
-
-  static TextStyle get body => GoogleFonts.rajdhani(
+  
+  // Küçük başlık - Alt başlıklar
+  static TextStyle get titleSmall => GoogleFonts.outfit(
     fontSize: 16,
-    color: Colors.white70,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
   );
 
-  static TextStyle get chip => GoogleFonts.orbitron(
+  // Normal metin - Açıklamalar, paragraflar
+  static TextStyle get body => GoogleFonts.inter(
+    fontSize: 15,
+    color: Colors.white.withOpacity(0.85),
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+  );
+  
+  // Küçük metin - Notlar, ipuçları
+  static TextStyle get bodySmall => GoogleFonts.inter(
+    fontSize: 13,
+    color: Colors.white70,
+    fontWeight: FontWeight.w400,
+  );
+
+  // Etiket/Badge - Buton içi, chip vb.
+  static TextStyle get label => GoogleFonts.inter(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    letterSpacing: 0.5,
+  );
+
+  // Vurgulu metin - Önemli bilgiler
+  static TextStyle get accentStyle => GoogleFonts.exo2(
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppTheme.accent,
+    letterSpacing: 1,
+  );
+
+  // Chip stili - Eski uyumluluk için
+  static TextStyle get chip => GoogleFonts.inter(
     fontSize: 12,
-    fontWeight: FontWeight.bold,
-    color: accent,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.accent,
+    letterSpacing: 0.5,
+  );
+  
+  // Oyuncu isim stili - Belirgin ve okunabilir
+  static TextStyle get playerName => GoogleFonts.outfit(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+  );
+  
+  // Sıra yazısı - "Sıra Sende" vb.
+  static TextStyle get turnIndicator => GoogleFonts.outfit(
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+    color: Colors.white.withOpacity(0.9),
+  );
+  
+  // Para göstergesi
+  static TextStyle get coinDisplay => GoogleFonts.exo2(
+    fontSize: 24,
+    fontWeight: FontWeight.w800,
+    color: warning,
   );
 }

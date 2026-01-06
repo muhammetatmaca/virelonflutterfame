@@ -29,6 +29,21 @@ class GameState extends Equatable {
   final List<Character> manipulationCards; // Gazeteci manipülasyon havuzu
   final Character? investigatedCard; // Engizisyoncu tarafından incelenen kart
 
+  /// Kurban ID'sini merkezi olarak belirler (farklı fazlara göre)
+  /// Bu sayede UI tarafında tutarsız kurban ID sorunu önlenir
+  String? get victimId {
+    // Kayyum ve Manipülasyon fazlarında hedef actionTargetId'dir
+    if (phase == GamePhase.kayyumBidding || phase == GamePhase.manipulation) {
+      return actionTargetId;
+    }
+    // Victim handover ve resolution fazlarında önce blockerId'ye bak
+    if (phase == GamePhase.victimHandover || phase == GamePhase.resolution) {
+      return blockerId ?? actionTargetId;
+    }
+    // Diğer fazlarda öncelik sırası: blockerId > actionTargetId > challengedPlayerId
+    return blockerId ?? actionTargetId ?? challengedPlayerId;
+  }
+
   const GameState({
     required this.players,
     this.deck = const [],

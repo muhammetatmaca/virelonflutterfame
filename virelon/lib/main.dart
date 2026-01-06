@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'features/game/presentation/screens/game_screen.dart';
+import 'features/splash_screen.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 void main() async {
@@ -29,11 +29,13 @@ class VirelonApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'VIRELON',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF0D0D0D),
       ),
-      home: const GameScreen(),
+      home: const SplashScreen(),
     );
   }
 }

@@ -297,12 +297,14 @@ class GameEngine {
 
     // Darbe (Coup): Hedef belli, direkt kart kaybetme fazına geç
     if (action == GameAction.coup && targetId != null) {
-       final victim = updatedPlayers.firstWhere((p) => p.id == targetId);
+       final victim = updatedPlayers.firstWhere((p) => p.id == targetId, orElse: () => updatedPlayers.first);
+       final initiator = current.players.firstWhere((p) => p.id == playerId, orElse: () => current.players.first);
        
        return newState.copyWith(
          phase: GamePhase.victimHandover, // Kurban kart seçecek
          blockerId: victim.id, // Kurban olarak işaretle
-         lastLog: "${current.players.firstWhere((p) => p.id == playerId).name}, ${victim.name}'e DARBE YAPTI! (Kart Seçimi Bekleniyor)"
+         actionTargetId: victim.id, // Kurban ID'sini de actionTargetId'ye kaydet
+         lastLog: "${initiator.name}, ${victim.name}'e DARBE YAPTI! (Kart Seçimi Bekleniyor)"
        );
     }
 
@@ -413,7 +415,7 @@ class GameEngine {
     } else if (action == GameAction.kayyum) {
        if (targetId == null) return _nextTurn(state);
 
-       final victim = updatedPlayers.firstWhere((p) => p.id == targetId);
+       final victim = updatedPlayers.firstWhere((p) => p.id == targetId, orElse: () => updatedPlayers.first);
        int loot = victim.coins;
        
        updatedPlayers = updatedPlayers.map((p) {
@@ -450,7 +452,7 @@ class GameEngine {
        
     } else if (action == GameAction.steal && targetId != null) {
        // Hedefin en fazla 2 coini çalınabilir (oyuncular arası transfer, hazine etkilenmez)
-       final target = updatedPlayers.firstWhere((p) => p.id == targetId);
+       final target = updatedPlayers.firstWhere((p) => p.id == targetId, orElse: () => updatedPlayers.first);
        int stolenAmount = target.coins >= 2 ? 2 : target.coins;
        
        updatedPlayers = updatedPlayers.map((p) {
@@ -465,11 +467,13 @@ class GameEngine {
        
        // Hedef kart kaybetmeli -> Victim Handover
        // Ancak burada state döndürüyoruz, nextTurn değil!
+       final initiatorPlayer = state.players.firstWhere((p) => p.id == initiatorId, orElse: () => state.players.first);
        return state.copyWith(
          players: updatedPlayers,
-           phase: GamePhase.victimHandover,
+         phase: GamePhase.victimHandover,
          blockerId: targetId, // Hedef kişi (Geçici olarak blockerId kullanıyoruz who-is-victim için)
-         lastLog: "${state.players.firstWhere((p)=>p.id==initiatorId).name} başarıyla SUİKAST yaptı!",
+         actionTargetId: targetId, // Kurban ID'sini de actionTargetId'ye kaydet (tutarlılık için)
+         lastLog: "${initiatorPlayer.name} başarıyla SUİKAST yaptı!",
        );
        
     } else if (action == GameAction.exchange) {
@@ -515,7 +519,7 @@ class GameEngine {
        }
        
        // 2. Ali'nin 2 kartını da al (KAPALI - Gazeteci görmeyecek)
-       final targetP = updatedPlayers.firstWhere((p) => p.id == targetId);
+       final targetP = updatedPlayers.firstWhere((p) => p.id == targetId, orElse: () => updatedPlayers.first);
        pool.addAll(targetP.hand); // Ali'nin 2 kartı
        
        // 3. Ali'nin elini GEÇİCİ olarak boşalt (Gazeteci seçim yapınca 1 kart geri verilecek)
@@ -535,12 +539,14 @@ class GameEngine {
        );
     } else if (action == GameAction.investigate && targetId != null) {
         // Engizisyoncu: Rakibin bir kartını gör, değiştir veya tut
-        final targetP = updatedPlayers.firstWhere((p) => p.id == targetId);
+        final targetP = updatedPlayers.firstWhere((p) => p.id == targetId, orElse: () => updatedPlayers.first);
         
         if (targetP.hand.isEmpty) {
            // Hedefin kartı yoksa
            return _nextTurn(state.copyWith(players: updatedPlayers, lastLog: "Hedefin kartı yok!"));
         }
+        
+        final initiatorP = state.players.firstWhere((p) => p.id == initiatorId, orElse: () => state.players.first);
         
         // Tek kartı varsa otomatik seç
         if (targetP.hand.length == 1) {
@@ -548,7 +554,7 @@ class GameEngine {
             players: updatedPlayers,
             phase: GamePhase.investigation,
             investigatedCard: targetP.hand.first,
-            lastLog: "${state.players.firstWhere((p)=>p.id==initiatorId).name} sorgu yapıyor...",
+            lastLog: "${initiatorP.name} sorgu yapıyor...",
           );
         }
         
@@ -733,8 +739,8 @@ class GameEngine {
     
     if (challengedId == null) return current;
 
-    final challenger = current.players.firstWhere((p) => p.id == challengerId);
-    final challenged = current.players.firstWhere((p) => p.id == challengedId);
+    final challenger = current.players.firstWhere((p) => p.id == challengerId, orElse: () => current.players.first);
+    final challenged = current.players.firstWhere((p) => p.id == challengedId, orElse: () => current.players.first);
     final claimedChar = current.claimedCharacter;
     
     // Action challenge için blockerId'yi sıfırla
@@ -786,7 +792,8 @@ class GameEngine {
     if (isDetailsCorrect && shownCard != null) {
         // --- CHALLENGED KAZANDI (Ispatladı) ---
         
-        final challengedPlayer = state.players.firstWhere((p) => p.id == challengedId);
+        final challengedPlayer = state.players.firstWhere((p) => p.id == challengedId, orElse: () => state.players.first);
+        final challengerPlayer = state.players.firstWhere((p) => p.id == challengerId, orElse: () => state.players.first);
         List<Character> newHand = List.from(challengedPlayer.hand);
         List<Character> updatedDeck = List.from(state.deck);
         
@@ -826,8 +833,9 @@ class GameEngine {
            players: updatedPlayers,
            deck: updatedDeck,
            phase: GamePhase.victimHandover,
-           actionTargetId: challengerId, // Kaybeden (Kurban) artık Challenger - actionTargetId kullan, blockerId değil!
-           lastLog: "${challengedPlayer.name} kartını ispatladı! ${state.players.firstWhere((p)=>p.id==challengerId).name} kart kaybedecek."
+           blockerId: challengerId, // Kurban ID'sini blockerId'ye de kaydet (UI tutarlılığı için)
+           actionTargetId: challengerId, // Kaybeden (Kurban) artık Challenger
+           lastLog: "${challengedPlayer.name} kartını ispatladı! ${challengerPlayer.name} kart kaybedecek."
         );
 
     } else {
@@ -836,7 +844,7 @@ class GameEngine {
         // ZİMMET özel durumu: Dük varsa otomatik kaybeder
         if (isActionChallenge && state.currentAction == GameAction.embezzle && shownCard == Character.duke) {
           // Dük kartını otomatik kaybet
-          final challengedPlayer = state.players.firstWhere((p) => p.id == challengedId);
+          final challengedPlayer = state.players.firstWhere((p) => p.id == challengedId, orElse: () => state.players.first);
           List<Character> newHand = List.from(challengedPlayer.hand);
           newHand.remove(Character.duke);
           
@@ -891,6 +899,7 @@ class GameEngine {
            updatedClaimants.remove(challengedId);
         }
 
+        final challengedPlayerForLog = state.players.firstWhere((p) => p.id == challengedId, orElse: () => state.players.first);
         return state.copyWith(
            players: updatedPlayers,
            kayyumClaimants: updatedClaimants,
@@ -900,9 +909,9 @@ class GameEngine {
            // Kayyum iptal olmaz, sadece o kişi listeden çıkar (zaten çıkarıldı)
            currentAction: (isActionChallenge && state.currentAction != GameAction.kayyum) ? null : state.currentAction,
            actionInitiatorId: (isActionChallenge && state.currentAction != GameAction.kayyum) ? null : state.actionInitiatorId,
-           actionTargetId: (isActionChallenge && state.currentAction != GameAction.kayyum) ? null : state.actionTargetId,
+           actionTargetId: (isActionChallenge && state.currentAction != GameAction.kayyum) ? challengedId : state.actionTargetId,
            claimedCharacter: null,
-           lastLog: "${state.players.firstWhere((p)=>p.id==challengedId).name} blöf yaparken yakalandı!"
+           lastLog: "${challengedPlayerForLog.name} blöf yaparken yakalandı!"
         );
     }
   }
@@ -1004,18 +1013,19 @@ class GameEngine {
 
     if (!isValid) return state;
 
+    final blockerPlayer = state.players.firstWhere((p) => p.id == blockerId, orElse: () => state.players.first);
     return state.copyWith(
        phase: GamePhase.blockingWindow,
        blockerId: blockerId,
        claimedCharacter: claimCharacter, 
-       lastLog: "${state.players.firstWhere((p)=>p.id==blockerId).name} engelliyor: ${claimCharacter.displayName}!"
+       lastLog: "${blockerPlayer.name} engelliyor: ${claimCharacter.displayName}!"
     );
   }
 
   /// Kart Kaybetme İşlemi (UI'dan seçilen kart ile çağrılır)
   GameState executeCardLoss(GameState current, String victimId, Character cardToLose) {
     // 1. Oyuncuyu bul
-    final victim = current.players.firstWhere((p) => p.id == victimId);
+    final victim = current.players.firstWhere((p) => p.id == victimId, orElse: () => current.players.first);
     
     // 2. Kartı canlardan al, ölülere koy
     List<Character> newCards = List.from(victim.cards);
@@ -1159,7 +1169,7 @@ class GameEngine {
     if (state.phase != GamePhase.kayyumBidding) return state;
     if (state.actionTargetId == null) return state;
 
-    final victim = state.players.firstWhere((p) => p.id == state.actionTargetId);
+    final victim = state.players.firstWhere((p) => p.id == state.actionTargetId, orElse: () => state.players.first);
     int totalLoot = victim.coins;
     
     List<String> claimants = state.kayyumClaimants;

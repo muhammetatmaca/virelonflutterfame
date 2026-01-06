@@ -15,6 +15,8 @@ import '../widgets/reference_sheet.dart';
 import '../widgets/coin_display.dart';
 import 'package:virelon/features/game/domain/models/player_model.dart';
 import '../../data/services/lobby_service.dart';
+import '../../../tutorial_screen.dart';
+import '../../../onboarding_screen.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({Key? key}) : super(key: key);
@@ -654,6 +656,72 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
           const SizedBox(height: 24),
           
+          // Nasıl Oynanır Butonu
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TutorialScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.school, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "NASIL OYNANIR?", 
+                      style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const Icon(Icons.play_circle_outline, color: Colors.green, size: 20),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+
+          // Oyun Tanıtımı (Onboarding) Butonu
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purple.withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.rocket_launch, color: Colors.purple, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "OYUNU TANIT", 
+                      style: TextStyle(color: Colors.purple, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward, color: Colors.purple, size: 20),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
           // Tema Seçme Butonu
           GestureDetector(
             onTap: () => _showThemeSelector(context),
@@ -665,12 +733,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 border: Border.all(color: Colors.white24),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.palette, color: AppTheme.accent, size: 20),
                   const SizedBox(width: 8),
-                  const Text("KART TEMASI SEÇ", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  const Spacer(),
+                  Expanded(
+                    child: Text(
+                      "KART TEMASI SEÇ", 
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
                   const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
                 ],
               ),
@@ -1609,13 +1680,42 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               } : () {},
             ),
           ),
+          
+          // En az 3 kişi uyarısı
+          if (_setupPlayers.length < 3) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Oyun başlatmak için en az 3 oyuncu gereklidir (${3 - _setupPlayers.length} kişi daha ekle)",
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     ).animate().fadeIn();
   }
 
   Widget _buildGameUI(BuildContext context, GameState gameState, GameNotifier notifier) {
-    final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId);
+    final currentPlayer = gameState.players.firstWhere((p) => p.id == gameState.currentPlayerId, orElse: () => gameState.players.first);
     
     return SingleChildScrollView(
       child: ConstrainedBox(
@@ -2165,7 +2265,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     if (challengedId == null) return const SizedBox.shrink();
     
-    final challenged = state.players.firstWhere((p) => p.id == challengedId);
+    final challenged = state.players.firstWhere((p) => p.id == challengedId, orElse: () => state.players.first);
     final claimedChar = state.claimedCharacter;
     final isEmbezzle = state.currentAction == GameAction.embezzle;
     
@@ -2514,7 +2614,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // --- Turn Transition UI ---
   Widget _buildTurnTransitionUI(GameState state, GameNotifier notifier) {
     // Find who's next (currentPlayer)
-    final nextPlayer = state.players.firstWhere((p) => p.id == state.currentPlayerId);
+    final nextPlayer = state.players.firstWhere((p) => p.id == state.currentPlayerId, orElse: () => state.players.first);
     
     return Center(
       child: Padding(
@@ -2522,36 +2622,61 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.phonelink_lock, size: 80, color: Colors.white54)
-                .animate(onPlay: (c) => c.repeat())
-                .shimmer(duration: 2.seconds),
+            // Telefon ikonu
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primary.withOpacity(0.1),
+                border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+              ),
+              child: const Icon(Icons.phonelink_ring, size: 60, color: Colors.white70),
+            ).animate(onPlay: (c) => c.repeat())
+                .shimmer(duration: 2.seconds, color: AppTheme.primary.withOpacity(0.3)),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
             
             GlassContainer(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
               isGlowing: true,
               borderColor: AppTheme.primary,
               child: Column(
                 children: [
-                   const Text(
+                   Text(
                      "SIRADAKİ OYUNCU",
-                     style: TextStyle(color: Colors.white70, letterSpacing: 2),
+                     style: AppTheme.bodySmall.copyWith(
+                       letterSpacing: 3,
+                       color: Colors.white54,
+                     ),
                    ),
-                   const SizedBox(height: 16),
+                   const SizedBox(height: 12),
                    
                    Text(
                      nextPlayer.name.toUpperCase(),
-                     style: AppTheme.headline.copyWith(color: AppTheme.primary, fontSize: 40),
+                     style: AppTheme.playerName.copyWith(
+                       fontSize: 32, 
+                       color: AppTheme.primary,
+                       letterSpacing: 2,
+                     ),
                      textAlign: TextAlign.center,
                    ),
                    
-                   const SizedBox(height: 32),
+                   const SizedBox(height: 24),
                    
-                   const Text(
-                     "Lütfen cihazı bu oyuncuya verin.\nHazır olduğunda butona bas.",
-                     textAlign: TextAlign.center,
-                     style: TextStyle(color: Colors.white54, height: 1.5),
+                   Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                     decoration: BoxDecoration(
+                       color: Colors.white.withOpacity(0.05),
+                       borderRadius: BorderRadius.circular(8),
+                     ),
+                     child: Text(
+                       "Lütfen cihazı bu oyuncuya verin.\nHazır olduğunda butona bas.",
+                       textAlign: TextAlign.center,
+                       style: AppTheme.body.copyWith(
+                         color: Colors.white70,
+                         height: 1.6,
+                       ),
+                     ),
                    ),
                    
                    const SizedBox(height: 32),
@@ -2577,12 +2702,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget _buildActionPendingUI(GameState state, GameNotifier notifier) {
     if (state.actionInitiatorId == null) return const SizedBox.shrink();
 
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId, orElse: () => state.players.first);
     // UI'ı gösteren kişinin ID'si (Genelde sıradaki oyuncu ama burada tepki veren kişi olmalı)
     // Şimdilik currentPlayer'ı alıyoruz ama logic olarak hatalı olabilir Pass&Play'de.
     // Ancak Single Device olduğu için ekranı o an elinde tutan kişi "Current" kabul edilir.
     // VE bloklama hakkı sadece ilgili kişiye gösterilmeli.
-    final currentUser = state.players.firstWhere((p) => p.id == ref.read(gameStateProvider).currentPlayerId); // Aslında bu state.currentPlayerId değil, cihazın sahibi.
+    final currentPlayerId = ref.read(gameStateProvider).currentPlayerId;
+    final currentUser = state.players.firstWhere(
+      (p) => p.id == currentPlayerId, 
+      orElse: () => state.players.first
+    );
     
     // Doğru mantık: PassAndPlay'de actionPending ekranı geldiğinde cihazı hedef kişiye vermeli mi?
     // Veya herkes sırayla bakmalı mı?
@@ -2846,9 +2975,30 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Resolution (Lose Card) UI ---
   Widget _buildResolutionUI(GameState state, GameNotifier notifier) {
-    // Challenge sonucu: blockerId = kaybeden kişi
-    final victimId = state.blockerId;
-    if (victimId == null) return const Center(child: Text("Hata: Kurban bulunamadı"));
+    // Yeni merkezi victimId getter'ını kullan
+    final victimId = state.victimId;
+    if (victimId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text("Kurban belirlenemedi", style: TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("blockerId: ${state.blockerId}\nactionTargetId: ${state.actionTargetId}", 
+                style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 24),
+            NeonButton(
+              label: "DEVAM ET",
+              icon: Icons.arrow_forward,
+              baseColor: AppTheme.primary,
+              onTap: () => notifier.passAction(),
+            ),
+          ],
+        ),
+      );
+    }
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first); 
     
@@ -2912,9 +3062,30 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
   // --- Victim Handover UI (Telefonu kurbana ver) ---
   Widget _buildVictimHandoverUI(GameState state, GameNotifier notifier) {
-    // Challenge sonucu: blockerId = kaybeden kişi
-    final victimId = state.blockerId;
-    if (victimId == null) return const Center(child: Text("Hata: Kurban ID yok"));
+    // Yeni merkezi victimId getter'ını kullan
+    final victimId = state.victimId;
+    if (victimId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text("Kurban ID belirlenemedi", style: TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("Phase: ${state.phase.name}\nblockerId: ${state.blockerId}\nactionTargetId: ${state.actionTargetId}", 
+                style: const TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            NeonButton(
+              label: "SİRAYA GEÇ",
+              icon: Icons.skip_next,
+              baseColor: AppTheme.primary,
+              onTap: () => notifier.passAction(),
+            ),
+          ],
+        ),
+      );
+    }
     
     final victim = state.players.firstWhere((p) => p.id == victimId, orElse: () => state.players.first);
     final isCoup = state.currentAction == GameAction.coup;
@@ -2925,41 +3096,85 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-             Icon(Icons.phone_android, size: 80, color: AppTheme.danger)
-                 .animate(onPlay: (c) => c.repeat(reverse: true))
+             // Telefon ikonu
+             Container(
+               padding: const EdgeInsets.all(20),
+               decoration: BoxDecoration(
+                 shape: BoxShape.circle,
+                 color: AppTheme.danger.withOpacity(0.1),
+                 border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
+               ),
+               child: Icon(Icons.phone_android, size: 50, color: AppTheme.danger),
+             ).animate(onPlay: (c) => c.repeat(reverse: true))
                  .scale(begin: const Offset(1,1), end: const Offset(1.1, 1.1), duration: 1.seconds),
              
              const SizedBox(height: 32),
              
              GlassContainer(
-               padding: const EdgeInsets.all(32),
+               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
                borderColor: AppTheme.danger,
                isGlowing: true,
                child: Column(
                  children: [
-                   Text(isCoup ? "SALDIRI GERÇEKLEŞTİ!" : "MEYDAN OKUMA SONUCU:", style: AppTheme.chip.copyWith(color: Colors.white70)),
-                   const SizedBox(height: 16),
+                   Text(
+                     isCoup ? "SALDIRI GERÇEKLEŞTİ!" : "MEYDAN OKUMA SONUCU", 
+                     style: AppTheme.bodySmall.copyWith(
+                       color: Colors.white60,
+                       letterSpacing: 2,
+                     ),
+                   ),
+                   const SizedBox(height: 12),
                    Text(
                      "BİRİ KART KAYBEDECEK!",
-                     style: AppTheme.headline.copyWith(color: AppTheme.danger, fontSize: 28),
+                     style: AppTheme.titleLarge.copyWith(
+                       color: AppTheme.danger, 
+                       fontSize: 24,
+                     ),
                      textAlign: TextAlign.center,
                    ),
                    const SizedBox(height: 24),
                    
-                   Text(
-                     "Telefonu\n${victim.name.toUpperCase()}\nadlı oyuncuya verin.",
-                     textAlign: TextAlign.center,
-                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                   Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                     decoration: BoxDecoration(
+                       color: AppTheme.danger.withOpacity(0.1),
+                       borderRadius: BorderRadius.circular(12),
+                       border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
+                     ),
+                     child: Column(
+                       children: [
+                         Text(
+                           "Telefonu",
+                           style: AppTheme.body.copyWith(color: Colors.white70),
+                         ),
+                         const SizedBox(height: 4),
+                         Text(
+                           victim.name.toUpperCase(),
+                           style: AppTheme.playerName.copyWith(
+                             color: AppTheme.danger,
+                             fontSize: 26,
+                           ),
+                         ),
+                         const SizedBox(height: 4),
+                         Text(
+                           "adlı oyuncuya verin",
+                           style: AppTheme.body.copyWith(color: Colors.white70),
+                         ),
+                       ],
+                     ),
                    ),
                    
                    const SizedBox(height: 16),
                    Text(
                     state.lastLog,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: AppTheme.bodySmall.copyWith(
+                      color: Colors.white54,
+                      fontStyle: FontStyle.italic,
+                    ),
                    ),
 
-                   const SizedBox(height: 32),
+                   const SizedBox(height: 28),
                    
                    NeonButton(
                      label: "BEN ${victim.name.toUpperCase()}, HAZIRIM",
@@ -3117,7 +3332,28 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Çoklu Kayyum UI
   Widget _buildKayyumBiddingUI(GameState state, GameNotifier notifier) {
-    final victim = state.players.firstWhere((p) => p.id == state.actionTargetId);
+    // actionTargetId null ise hata durumu
+    if (state.actionTargetId == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text("Kayyum hedefi belirlenemedi", style: TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 24),
+            NeonButton(
+              label: "GERİ DÖN",
+              icon: Icons.arrow_back,
+              baseColor: AppTheme.primary,
+              onTap: () => notifier.passAction(),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    final victim = state.players.firstWhere((p) => p.id == state.actionTargetId, orElse: () => state.players.first);
     final claimants = state.kayyumClaimants;
     
     // Sıradaki bidder'ı bul
@@ -3128,7 +3364,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return _buildKayyumFinalizeUI(state, notifier, victim, claimants);
     }
     
-    final currentBidder = state.players.firstWhere((p) => p.id == nextBidderId);
+    final currentBidder = state.players.firstWhere((p) => p.id == nextBidderId, orElse: () => state.players.first);
     bool isClaimant = claimants.contains(currentBidder.id);
 
     return Container(
@@ -3436,9 +3672,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final cards = state.manipulationCards;
     if (cards.length < 3) return Center(child: Text("Hata: Yeterli kart yok (${cards.length}/3)"));
     
+    // Null check ekle
+    if (state.actionTargetId == null || state.actionInitiatorId == null) {
+      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
+    }
+    
     final targetId = state.actionTargetId!;
-    final target = state.players.firstWhere((p) => p.id == targetId);
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
+    final target = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!, orElse: () => state.players.first);
     
     // Pool: [Deste kartı (AÇIK), Ali kart 1 (KAPALI), Ali kart 2 (KAPALI)]
     final deckCard = cards[0]; // AÇIK
@@ -4064,10 +4305,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Cihaz Devretme Ekranı (Investigation Handover)
   Widget _buildInvestigationHandoverUI(GameState state, GameNotifier notifier, {required bool isReturn}) {
+    // Null check ekle
+    if (state.actionTargetId == null || state.actionInitiatorId == null) {
+      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
+    }
+    
     final targetId = state.actionTargetId!;
     final initiatorId = state.actionInitiatorId!;
-    final targetPlayer = state.players.firstWhere((p) => p.id == targetId);
-    final initiatorPlayer = state.players.firstWhere((p) => p.id == initiatorId);
+    final targetPlayer = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
+    final initiatorPlayer = state.players.firstWhere((p) => p.id == initiatorId, orElse: () => state.players.first);
     
     // isReturn: true ise sorgulayana geri ver, false ise hedefe ver
     final nextPlayerName = isReturn ? initiatorPlayer.name : targetPlayer.name;
@@ -4189,9 +4435,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Hedef Oyuncu Kart Seçimi (Investigation)
   Widget _buildInvestigationCardSelectUI(GameState state, GameNotifier notifier) {
+    // Null check ekle
+    if (state.actionTargetId == null || state.actionInitiatorId == null) {
+      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
+    }
+    
     final targetId = state.actionTargetId!;
-    final targetPlayer = state.players.firstWhere((p) => p.id == targetId);
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
+    final targetPlayer = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!, orElse: () => state.players.first);
     
     return Container(
       decoration: BoxDecoration(
@@ -4314,9 +4565,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // Engizisyoncu Sorgulama UI
   Widget _buildInvestigationUI(GameState state, GameNotifier notifier) {
     final revealedCard = state.investigatedCard;
+    
+    // Null check ekle
+    if (state.actionTargetId == null || state.actionInitiatorId == null) {
+      return const Center(child: Text("Hata: Hedef veya başlatıcı belirlenemedi", style: TextStyle(color: Colors.white)));
+    }
+    
     final targetId = state.actionTargetId!;
-    final target = state.players.firstWhere((p) => p.id == targetId);
-    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!);
+    final target = state.players.firstWhere((p) => p.id == targetId, orElse: () => state.players.first);
+    final initiator = state.players.firstWhere((p) => p.id == state.actionInitiatorId!, orElse: () => state.players.first);
     
     if (revealedCard == null) return const SizedBox.shrink();
 
