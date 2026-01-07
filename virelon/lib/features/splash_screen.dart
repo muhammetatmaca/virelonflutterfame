@@ -5,6 +5,8 @@ import 'onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game/presentation/screens/game_screen.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:in_app_update/in_app_update.dart';
+import 'dart:io';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -43,9 +45,30 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     await Future.delayed(const Duration(milliseconds: 500));
     setState(() => _showSubtitle = true);
     
+    // Google Play Güncelleme Kontrolü (Zorunlu)
+    if (Platform.isAndroid) {
+      await _checkForUpdate();
+    }
+
     // Splash sonrası yönlendirme
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(milliseconds: 1000));
     _navigateNext();
+  }
+
+  Future<void> _checkForUpdate() async {
+    try {
+      // Güncelleme var mı kontrol et
+      final updateInfo = await InAppUpdate.checkForUpdate();
+      
+      if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
+        // Güncelleme varsa 'IMMEDIATE' modunda başlat (Zorunlu güncelleme)
+        await InAppUpdate.performImmediateUpdate();
+      }
+    } catch (e) {
+      // Hata durumunda (örn. internet yok veya Play Store hatası) 
+      // kullanıcıyı engellemeden devam etmesi daha sağlıklıdır.
+      debugPrint("In-App Update Error: $e");
+    }
   }
 
   Future<void> _navigateNext() async {
@@ -117,7 +140,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 child: const Text(
                   'VIRELON',
                   style: TextStyle(
-                    fontSize: 52,
+                    fontFamily: 'Atarian',
+                    fontSize: 62,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 12,
                     color: Colors.white,
@@ -135,7 +159,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 Text(
                   AppLocalizations.of(context)!.splashSubtitle,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontFamily: 'Atarian',
+                    fontSize: 20,
                     color: Colors.white54,
                     letterSpacing: 4,
                   ),

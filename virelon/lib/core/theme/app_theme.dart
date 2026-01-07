@@ -34,7 +34,8 @@ class AppTheme {
   // === MODERN TEXT STYLES ===
   
   // Ana başlık - Büyük ve etkileyici (Oyun adı, kazanan ekranı vb.)
-  static TextStyle get headline => GoogleFonts.exo2(
+  static TextStyle get headline => const TextStyle(
+    fontFamily: 'Atarian',
     fontSize: 40,
     fontWeight: FontWeight.w800,
     color: Colors.white,
@@ -42,7 +43,8 @@ class AppTheme {
   );
 
   // Büyük başlık - Bölüm başlıkları
-  static TextStyle get titleLarge => GoogleFonts.outfit(
+  static TextStyle get titleLarge => const TextStyle(
+    fontFamily: 'Atarian',
     fontSize: 28,
     fontWeight: FontWeight.w700,
     color: Colors.white,
@@ -50,7 +52,8 @@ class AppTheme {
   );
   
   // Orta başlık - Kart isimleri, oyuncu isimleri
-  static TextStyle get titleMedium => GoogleFonts.outfit(
+  static TextStyle get titleMedium => const TextStyle(
+    fontFamily: 'Atarian',
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: Colors.white,
